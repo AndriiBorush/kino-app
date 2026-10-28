@@ -147,6 +147,9 @@ button.person{display:block}
 .folders::-webkit-scrollbar{display:none}
 .chips button{flex:none;padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px;white-space:nowrap}
 .chips button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.airbar{display:flex;justify-content:center;gap:8px;margin-bottom:14px}
+.airbar button{padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
+.airbar button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
 .chips button.add{color:var(--muted);border-style:dashed}
 .chips button.pen{display:grid;place-items:center;padding:0;width:40px}
 .chips button.pen svg{width:17px;height:17px}
@@ -419,6 +422,12 @@ function segBar() {
   const s = seg[tab];
   return `<div class="seg"><button data-seg="movie" class="${s === 'movie' ? 'on' : ''}">Фильмы</button><button data-seg="tv" class="${s === 'tv' ? 'on' : ''}">Сериалы</button></div>`;
 }
+// Фильтр сериалов в «Посмотрю»: идёт / закончен (закрытый = закончен); повторное нажатие снимает фильтр
+let airF = 'all';
+try { airF = localStorage.getItem('kino-air') || 'all'; } catch {}
+function airBar() {
+  return `<div class="airbar">${[['live', 'Идёт'], ['end', 'Закончен']].map(([k, t]) => `<button data-air="${k}" class="${airF === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
+}
 function showRow(it) {
   const n = nextEp(it), t = total(it), s = seenCount(it), p = poster(it.poster, 'w185');
   return `<div class="row"><button class="poster" data-open="${uid('tv', it.id)}">${p ? `<img src="${p}" alt="" onerror="this.remove()">` : ''}</button><button class="info" data-open="${uid('tv', it.id)}"><div class="t">${esc(it.title)}</div><div class="s">${n ? `Дальше: сезон ${n.s}, серия ${n.e}` : 'Досмотрен'} · ${s} из ${t}</div><div class="bar"><i style="width:${t ? s / t * 100 : 0}%"></i></div></button>${n ? `<button class="plus" data-next="${it.id}">+1</button>` : ''}</div>`;
@@ -427,10 +436,11 @@ function render() {
   const m = $('#main'), all = Object.values(db.items);
   if (tab === 'want') {
     const type = seg.want, word = type === 'movie' ? 'фильмы' : 'сериалы', f = curFolder();
-    const inF = i => !hiddenMine(i) && (!f || f.items.includes(uid(i.type, i.id)));
+    const air = i => type !== 'tv' || airF === 'all' || (airF === 'end') === /Ended|Canceled/.test(i.tvStatus || '');
+    const inF = i => !hiddenMine(i) && (!f || f.items.includes(uid(i.type, i.id))) && air(i);
     const list = all.filter(i => i.type === type && i.status === 'want' && inF(i)).sort((a, b) => b.addedAt - a.addedAt);
     const watching = type === 'tv' ? all.filter(i => i.type === 'tv' && i.status === 'watching' && inF(i)).sort((a, b) => (b.touchedAt || 0) - (a.touchedAt || 0)) : [];
-    let h = segBar() + folderBar();
+    let h = segBar() + folderBar() + (type === 'tv' ? airBar() : '');
     if (f && !list.length && !watching.length) { m.innerHTML = h + `<div class="empty">В подборке «${esc(f.name)}» пока пусто.<br>Добавь фильм через его карточку.</div>`; return; }
     if (watching.length) h += `<div class="sec" style="margin-top:4px">Смотрю сейчас</div>${watching.map(showRow).join('')}${list.length ? '<div class="sec">Хочу посмотреть</div>' : ''}`;
     if (watching.length && !list.length) {} else h += list.length ?`${watching.length ? '' : `<p class="count">${list.length} в списке</p>`}<div class="grid">${list.map(tile).join('')}</div>` : `<div class="empty">Здесь будут ${word}, которые хочешь посмотреть.<br>Найди их в «Поиске» или «Подборках».</div>`;
@@ -987,6 +997,7 @@ $('#main').addEventListener('click', e => {
     if (v === 'new') { newFolder().then(f => { if (f) { folderSel[tab] = f.id; render(); toast('Подборка создана'); } }); return; }
     folderSel[tab] = v || null;
     const y = scrollY; render(); scrollTo(0, y); return; }
+  const ab = e.target.closest('[data-air]'); if (ab) { airF = airF === ab.dataset.air ? 'all' : ab.dataset.air; try { localStorage.setItem('kino-air', airF); } catch {} const y = scrollY; render(); scrollTo(0, y); return; }
   const sg = e.target.closest('[data-seg]'); if (sg) { seg[tab] = sg.dataset.seg; const y = scrollY; render(); scrollTo(0, y); return; }
   const cl = e.target.closest('[data-col]'); if (cl) return openCollection(+cl.dataset.col);
   const nx = e.target.closest('[data-next]');
