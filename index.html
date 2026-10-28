@@ -1,0 +1,1029 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Кино">
+<meta name="theme-color" content="#0b0d12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Кино</title>
+<style>
+:root{--bg:#0b0d12;--card:#12151c;--line:#1f232d;--key:#171a22;--text:#eef0f4;--muted:#8a909c;--gold:#d6b48a;--red:#e5484d;--green:#4cc38a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+header{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:calc(env(safe-area-inset-top) + 12px) 16px 10px;background:rgba(11,13,18,.92);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+h1{margin:0;font-size:28px;font-weight:700;letter-spacing:-.4px}
+.iconbtn{width:44px;height:44px;border-radius:14px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center}
+.iconbtn svg{width:20px;height:20px}
+main{padding:calc(env(safe-area-inset-top) + 74px) 16px calc(env(safe-area-inset-bottom) + 90px)}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:5;display:flex;padding:8px 8px calc(env(safe-area-inset-bottom) + 6px);background:rgba(11,13,18,.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-top:1px solid var(--line)}
+nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:var(--muted);padding:4px 0}
+nav button svg{width:24px;height:24px}
+nav button.on{color:var(--gold)}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:3px;margin-bottom:16px}
+.seg button{flex:1;height:36px;border-radius:9px;font-size:15px;color:var(--muted)}
+.seg button.on{background:#262b36;color:var(--text);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px}
+.tile{text-align:left;min-width:0}
+.poster{width:100%;aspect-ratio:2/3;border-radius:10px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:12px;text-align:center;padding:6px;overflow:hidden;position:relative}
+.poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tile .t{font-size:13px;margin-top:6px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tile .s{font-size:12px;color:var(--muted);margin-top:2px}
+.empty{color:var(--muted);text-align:center;padding:60px 20px;line-height:1.5}
+.count{color:var(--muted);font-size:14px;margin:0 0 14px}
+.sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:24px 0 10px}
+.row{display:flex;gap:12px;align-items:center;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line);margin-bottom:10px;width:100%}
+.row .poster{width:56px;flex:none;border-radius:8px}
+.row .info{flex:1;min-width:0;text-align:left}
+.row .t{font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:13px;color:var(--muted);margin-top:3px}
+.bar{height:4px;background:var(--line);border-radius:2px;margin-top:8px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold)}
+.plus{flex:none;width:52px;height:44px;border-radius:12px;background:var(--key);border:1px solid var(--line);color:var(--gold);font-weight:600;font-size:15px}
+.search{width:100%;height:46px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:17px;padding:0 14px;outline:none;margin-bottom:16px;-webkit-appearance:none}
+.search:focus{border-color:#3a3f4c}
+.mark{font-size:12px;color:var(--gold)}
+/* Подборки */
+.shelf h3{margin:26px 0 12px;font-size:20px;letter-spacing:-.2px}
+.shelf:first-child h3{margin-top:4px}
+.shelf .sub{color:var(--muted);font-size:13px;margin:-8px 0 12px}
+.scroller{display:flex;gap:10px;overflow-x:auto;margin:0 -16px;padding:0 16px;scroll-snap-type:x proximity;scrollbar-width:none}
+.scroller::-webkit-scrollbar{display:none}
+.scroller .tile{flex:none;width:112px;scroll-snap-align:start}
+/* Карточка фильма */
+#sheet{position:fixed;inset:0;z-index:10;background:var(--bg);overflow-y:auto;transform:translateY(100%);transition:transform .28s ease;-webkit-overflow-scrolling:touch}
+#sheet.open{transform:none}
+#page{position:fixed;inset:0;z-index:9;background:var(--bg);overflow-y:auto;transform:translateX(100%);transition:transform .28s ease;-webkit-overflow-scrolling:touch}
+#page.open{transform:none}
+.pagehead{text-align:center;margin-bottom:22px}
+.pagehead .emo{font-size:56px;line-height:1}
+.pagehead h2{margin:12px 0 0;font-size:24px;letter-spacing:-.3px}
+.pagehead .s{color:var(--muted);font-size:15px;margin-top:6px}
+.colhead{display:flex;align-items:center;gap:10px;margin:20px 0 14px}
+.colhead h3{margin:0;font-size:24px;letter-spacing:-.3px}
+.colhead span{padding:4px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:14px;font-weight:600}
+.col{display:block;width:100%;text-align:center;padding:22px 16px 18px;margin-bottom:12px;border-radius:18px;background:var(--card);border:1px solid var(--line)}
+.col .emo{font-size:40px;line-height:1}
+.col .ct{font-size:19px;font-weight:600;margin-top:12px;letter-spacing:-.2px;line-height:1.25}
+.col .cn{color:var(--muted);font-size:15px;margin-top:6px}
+.dragging{transition:none!important}
+#person{position:fixed;inset:0;z-index:12;background:var(--bg);overflow-y:auto;transform:translateX(100%);transition:transform .28s ease;-webkit-overflow-scrolling:touch}
+#person.open{transform:none}
+#person .close{z-index:13}
+.face.big{width:140px;height:140px;font-size:40px}
+hr.split{border:0;border-top:1px solid var(--line);margin:28px 0 4px}
+button.person{display:block}
+.hero{padding:calc(env(safe-area-inset-top) + 64px) 16px 0;text-align:center}
+.hero .poster{width:180px;margin:0 auto;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.55)}
+.hero h2{margin:18px 0 0;font-size:24px;line-height:1.2;letter-spacing:-.3px}
+.hero .s{color:var(--muted);font-size:15px;margin-top:6px}
+.play{position:absolute;right:10px;bottom:10px;z-index:2;width:46px;height:46px;border-radius:50%;background:rgba(110,114,122,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:grid;place-items:center;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.play svg{width:22px;height:22px;margin-left:3px}
+.play:active{transform:scale(.94)}
+.close{position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:16px;z-index:11}
+.body{padding:20px 16px calc(env(safe-area-inset-bottom) + 30px)}
+.btns{display:flex;gap:10px}
+.btns button{flex:1;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:15px}
+.btns button.on{background:var(--gold);color:#16120c;border-color:var(--gold)}
+.ov{color:#c3c8d1;line-height:1.55;font-size:15px;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{padding:7px 12px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
+.people{display:flex;gap:14px;overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none}
+.people::-webkit-scrollbar{display:none}
+.person{flex:none;width:82px;text-align:center}
+.face{width:72px;height:72px;margin:0 auto;border-radius:50%;background:var(--card);border:1px solid var(--line);overflow:hidden;position:relative;display:grid;place-items:center;color:var(--muted);font-size:20px;font-weight:600}
+.face img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.person .n{font-size:13px;margin-top:6px;line-height:1.25}
+.person .r{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.season{border:1px solid var(--line);border-radius:14px;background:var(--card);margin-bottom:10px;overflow:hidden}
+.season .head{display:flex;justify-content:space-between;align-items:center;width:100%;padding:14px;font-size:16px}
+.season .head span{color:var(--muted);font-size:14px}
+.eps{display:none;padding:0 14px 14px}
+.season.open .eps{display:block}
+.epgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.epgrid button{height:40px;border-radius:9px;background:var(--key);border:1px solid var(--line);font-size:14px}
+.epgrid button.on{background:var(--green);color:#06120c;border-color:var(--green);font-weight:600}
+.season .head b{font-weight:400}
+.season .head small{color:var(--muted);font-size:14px}
+.season.soon{border-style:dashed;background:none}
+.season.soon .head span{color:var(--gold)}
+.season.soon .eps{padding-top:0}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
+.dot.live{background:var(--green);box-shadow:0 0 8px rgba(76,195,138,.7)}
+.dot.wait{background:var(--gold)}
+.dot.end{background:#8a909c}
+.poster .dot{position:absolute;top:7px;right:7px;width:10px;height:10px;z-index:1;border:2px solid rgba(11,13,18,.85);box-sizing:content-box}
+.status{display:inline-flex;align-items:center;gap:8px;margin-top:12px;padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
+.status.live{color:#9fe3c0}.status.wait{color:var(--gold)}.status.end{color:var(--muted)}
+.eplist{display:flex;flex-direction:column}
+.ep{display:flex;align-items:center;gap:12px;width:100%;padding:10px 0;border-top:1px solid var(--line);text-align:left}
+.ep:first-child{border-top:0}
+.chk{width:22px;height:22px;flex:none;border-radius:50%;border:1.5px solid #3a3f4c;display:grid;place-items:center}
+.ep.on .chk{background:var(--green);border-color:var(--green)}
+.ep.on .chk::after{content:'';width:9px;height:5px;border:2px solid #06120c;border-top:0;border-right:0;transform:rotate(-45deg) translate(1px,-1px)}
+.en{flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.en b{display:inline-block;min-width:24px;font-weight:600;color:var(--muted);margin-right:6px}
+.ed{flex:none;font-size:14px;color:var(--muted)}
+.ep.future{cursor:default}
+.ep.future .chk{border-style:dashed;opacity:.5}
+.ep.future .en{color:var(--muted)}
+.ep.future .ed{color:var(--gold)}
+.all{margin-top:10px;font-size:14px;color:var(--gold)}
+.folders{margin-bottom:16px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.folders::-webkit-scrollbar{display:none}
+.chips button{flex:none;padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px;white-space:nowrap}
+.chips button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.chips button.add{color:var(--muted);border-style:dashed}
+.chips button.pen{display:grid;place-items:center;padding:0;width:40px}
+.chips button.pen svg{width:17px;height:17px}
+.genres button.on{background:rgba(229,72,77,.14);color:#ff8a8d;border-color:rgba(229,72,77,.5);text-decoration:line-through;font-weight:400}
+.stats .big{font-size:44px;font-weight:700;letter-spacing:-1px;line-height:1.1;margin-top:4px}
+.stats .big span{font-size:20px;font-weight:600;letter-spacing:0;color:var(--muted)}
+.stats .sub{color:var(--muted);font-size:14px;margin-top:4px}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.sgrid div{background:var(--key);border:1px solid var(--line);border-radius:14px;padding:12px}
+.sgrid b{display:block;font-size:24px}
+.sgrid span{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.stats .sec{margin-top:20px}
+.stats .people{margin:0 -16px;padding:0 16px}
+.hrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.hrow span{flex:1;min-width:0;font-size:15px}
+.hrow small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.hrow button{padding:7px 12px;border-radius:10px;background:var(--key);border:1px solid var(--line);color:var(--gold);font-size:14px}
+.bottom2{display:flex;gap:10px;margin-top:28px}
+.bottom2 .hide{flex:1;margin-top:0;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.bottom2 .sim{color:var(--text)}
+.hide{margin-top:28px;color:var(--muted);font-size:15px;width:100%;text-align:center;padding:12px}
+.del{margin-top:28px;color:var(--red);font-size:15px;width:100%;text-align:center;padding:12px}
+.hint{color:var(--muted);font-size:14px}
+/* Настройки */
+.field{width:100%;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--key);color:var(--text);font-size:15px;padding:0 12px;outline:none;-webkit-appearance:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+.card p{margin:0 0 10px;color:var(--muted);font-size:14px;line-height:1.45}
+.card a{color:var(--gold)}
+.wide{width:100%;height:46px;border-radius:12px;background:var(--key);border:1px solid var(--line);font-weight:600;margin-top:8px}
+#dlg{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:24px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#dlg.open{display:flex}
+.dbox{width:100%;max-width:340px;background:#171a22;border:1px solid var(--line);border-radius:20px;padding:20px}
+.dbox h3{margin:0;font-size:18px;text-align:center}
+.dbox p{margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.45;text-align:center}
+.dbox .field{margin-top:16px;font-size:16px}
+.dbtns{display:flex;gap:10px;margin-top:18px}
+.dbtns button{flex:1;height:46px;border-radius:12px;background:var(--key);border:1px solid var(--line);font-weight:600}
+.dbtns .okb{background:var(--gold);color:#16120c;border-color:var(--gold)}
+.dbtns .danger{background:var(--red);color:#fff;border-color:var(--red)}
+.dextra{display:block;width:100%;margin-top:12px;padding:8px;color:var(--red);font-size:15px}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);transform:translateX(-50%);background:#252a35;color:var(--text);padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header><h1 id="title"></h1>
+<button class="iconbtn" id="gear" aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+</header>
+<main id="main"></main>
+<nav>
+<button data-tab="want" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Посмотрю</button>
+<button data-tab="watched"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Просмотрено</button>
+<button data-tab="lists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Подборки</button>
+<button data-tab="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Поиск</button>
+</nav>
+<div id="page"></div>
+<div id="sheet"></div>
+<div id="person"></div>
+<div id="toast"></div>
+<div id="dlg"></div>
+<input type="file" id="file" accept=".json,application/json" hidden>
+<script>
+const KEY = 'kino-data', TMDB = 'https://api.themoviedb.org/3', IMG = 'https://image.tmdb.org/t/p/';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let db = load(), tab = 'want', query = '', results = null, searchTimer;
+const seg = { want: 'tv', watched: 'movie', lists: 'movie' }; // при открытии — «Посмотрю → Сериалы»
+const pool = {}; // всё, что пришло из TMDB (поиск, подборки) — чтобы открыть карточку
+
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.items) return d; } catch {}
+  return { key: '', items: {}, showsChecked: 0 };
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch { toast('Не удалось сохранить'); } }
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 2000); }
+const uid = (type, id) => type + '-' + id;
+const year = d => (d || '').slice(0, 4);
+const poster = (p, size = 'w342') => p ? IMG + size + p : '';
+
+// ---------- TMDB ----------
+async function api(path, params = {}) {
+  if (!db.key) throw new Error('nokey');
+  const q = new URLSearchParams({ language: 'ru-RU', ...params });
+  const opt = {};
+  if (db.key.length > 40) opt.headers = { Authorization: 'Bearer ' + db.key }; else q.set('api_key', db.key);
+  const r = await fetch(TMDB + path + '?' + q, opt);
+  if (r.status === 401) throw new Error('badkey');
+  if (!r.ok) throw new Error('net');
+  return r.json();
+}
+function fromApi(x, type) {
+  type = type || x.media_type;
+  const it = { id: x.id, type, title: x.title || x.name || x.original_title || x.original_name, year: year(x.release_date || x.first_air_date), poster: x.poster_path || '', overview: x.overview || '', g: x.genre_ids || [], lang: x.original_language || '', date: x.release_date || x.first_air_date || '' };
+  pool[uid(type, it.id)] = pool[uid(type, it.id)] || it;
+  return it;
+}
+const DV = 7; // версия набора данных карточки: старые записи догружаются заново
+const JOBS = { Director: 'Режиссёр', Screenplay: 'Сценарий', Writer: 'Сценарий', Novel: 'Автор книги', 'Original Music Composer': 'Композитор', 'Director of Photography': 'Оператор', Producer: 'Продюсер' };
+// Жанры, актёры, съёмочная группа, сезоны — одним запросом
+async function loadDetails(it) {
+  // У сериалов aggregate_credits — состав за все сезоны, а не только за последний
+  const cr = it.type === 'tv' ? 'aggregate_credits' : 'credits';
+  const d = await api('/' + it.type + '/' + it.id, { append_to_response: cr + ',videos' + (it.type === 'movie' ? ',release_dates' : ''), include_video_language: 'ru' });
+  const credits = d[cr] || {};
+  // Русский трейлер с YouTube: сначала трейлер, потом тизер, потом любое видео
+  const vids = ((d.videos || {}).results || []).filter(v => v.site === 'YouTube' && v.iso_639_1 === 'ru');
+  const tr = vids.find(v => v.type === 'Trailer') || vids.find(v => v.type === 'Teaser') || vids[0];
+  it.yt = tr ? tr.key : '';
+  if (it.type === 'movie') {
+    // Дата проката в кино: Россия, иначе США, иначе самая ранняя премьера
+    const rd = c => (((d.release_dates || {}).results || []).find(r => r.iso_3166_1 === c) || {}).release_dates || [];
+    const th = c => (rd(c).find(x => x.type === 3) || rd(c).find(x => x.type === 2) || {}).release_date;
+    const ru = th('RU'), us = th('US');
+    it.release = (ru || us || d.release_date || '').slice(0, 10); it.releaseIn = ru ? '' : us ? 'США' : '';
+    it.mstatus = d.status || '';
+  }
+  it.genres = (d.genres || []).map(g => g.name); it.g = (d.genres || []).map(g => g.id); it.lang = d.original_language || it.lang || '';
+  if (d.overview) it.overview = d.overview;
+  if (d.poster_path) it.poster = d.poster_path;
+  it.runtime = d.runtime || (d.episode_run_time || [])[0] || 0;
+  it.cast = (credits.cast || []).slice(0, 15).map(p => ({ id: p.id, name: p.name, role: p.character || ((p.roles || [])[0] || {}).character || '', photo: p.profile_path || '' }));
+  const crew = (d.created_by || []).map(p => ({ id: p.id, name: p.name, role: 'Создатель', photo: p.profile_path || '' }));
+  const seen = new Set(crew.map(p => p.name + p.role)), producers = [];
+  for (const p of credits.crew || []) {
+    for (const job of p.job ? [p.job] : (p.jobs || []).map(j => j.job)) {
+      const role = JOBS[job]; if (!role || seen.has(p.name + role)) continue;
+      seen.add(p.name + role); (role === 'Продюсер' ? producers : crew).push({ id: p.id, name: p.name, role, photo: p.profile_path || '' });
+    }
+  }
+  const order = Object.values(JOBS);
+  crew.sort((a, b) => (a.role === 'Создатель' ? -1 : order.indexOf(a.role)) - (b.role === 'Создатель' ? -1 : order.indexOf(b.role)));
+  it.crew = crew.slice(0, 10).concat(producers.slice(0, 2));
+  if (it.type === 'tv') {
+    const all = (d.seasons || []).filter(s => s.season_number > 0);
+    const last = all[all.length - 1];
+    // Пустой сезон оставляем, только если он последний и сериал не закончен — это объявленный сезон
+    it.seasons = all.filter(s => s.episode_count > 0 || (s === last && !/Ended|Canceled/.test(d.status))).map(s => ({ n: s.season_number, count: s.episode_count, date: s.air_date || '' }));
+    it.tvStatus = d.status || '';
+    it.lastAir = d.last_air_date || '';
+    const ne = d.next_episode_to_air;
+    it.next = ne && ne.air_date ? { date: ne.air_date, s: ne.season_number, e: ne.episode_number } : null;
+    // Расписание сезонов, которые ещё выходят или скоро выйдут, обновляем; старые храним как есть
+    it.eps = it.eps || {};
+    for (const s of it.seasons) if (!s.date || s.date > addDays(-150)) delete it.eps[s.n];
+    const up = it.seasons.find(s => !aired(s)); if (up) await loadEps(it, up.n).catch(() => {});
+  }
+  it.details = Date.now(); it.dv = DV;
+}
+
+async function loadEps(it, n) {
+  const d = await api('/tv/' + it.id + '/season/' + n);
+  (it.eps = it.eps || {})[n] = (d.episodes || []).map(e => ({ e: e.episode_number, d: e.air_date || '', t: e.name || '', m: e.runtime || 0 }));
+  const s = (it.seasons || []).find(x => x.n === n); if (s && it.eps[n].length > s.count) s.count = it.eps[n].length;
+}
+
+// ---------- Обложки в памяти телефона ----------
+async function cachePoster(p) {
+  if (!p || !('caches' in window)) return;
+  const url = poster(p);
+  try {
+    const c = await caches.open('kino-posters');
+    if (await c.match(url)) return;
+    // reload: копия картинки из обычного кэша браузера не годится для сохранения (нет CORS-заголовка)
+    const r = await fetch(url, { mode: 'cors', cache: 'reload' });
+    if (r.ok) await c.put(url, r);
+  } catch {}
+}
+async function dropPoster(p) { if (p && 'caches' in window) try { (await caches.open('kino-posters')).delete(poster(p)); } catch {} }
+async function syncAll() {
+  if (!navigator.onLine) return;
+  for (const it of Object.values(db.items)) await cachePoster(it.poster);
+  if (!db.key) return;
+  // Догружаем жанры и актёров, где их нет; раз в сутки обновляем сезоны — появятся новые серии
+  const daily = Date.now() - (db.showsChecked || 0) > 864e5;
+  for (const it of Object.values(db.items)) {
+    if (!it.details || it.dv !== DV || (daily && it.type === 'tv' && it.status !== 'watched')) { try { await loadDetails(it); } catch {} }
+    // Для статистики: точная длительность просмотренных серий (одна загрузка на сезон)
+    if (it.type === 'tv') for (const sn of Object.keys(it.seen || {})) {
+      if ((it.seen[sn] || []).length && !((it.eps || {})[sn] || []).some(x => 'm' in x)) { try { await loadEps(it, +sn); } catch {} }
+    }
+  }
+  if (daily) db.showsChecked = Date.now();
+  save(); if (!$('#sheet').classList.contains('open')) render();
+}
+
+// ---------- Сериалы: прогресс ----------
+const today = () => new Date().toISOString().slice(0, 10);
+const aired = s => s.date === undefined || (s.date && s.date <= today()); // у старых записей даты нет — считаем вышедшим
+const airedSeasons = it => (it.seasons || []).filter(aired);
+// Сколько серий сезона уже вышло: по расписанию, если оно загружено
+const airedCount = (it, s) => { const eps = (it.eps || {})[s.n]; return eps ? eps.filter(x => x.d && x.d <= today()).length : s.count; };
+const total = it => airedSeasons(it).reduce((a, s) => a + airedCount(it, s), 0);
+const seenCount = it => Object.values(it.seen || {}).reduce((a, e) => a + e.length, 0);
+function nextEp(it) {
+  for (const s of airedSeasons(it)) { const seen = (it.seen || {})[s.n] || []; for (let e = 1; e <= airedCount(it, s); e++) if (!seen.includes(e)) return { s: s.n, e }; }
+  return null;
+}
+// Статус сериала: цвет точки и строка «когда дальше»
+const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+const MONTHS1 = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'];
+function fmtDate(d, short) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-').map(Number), thisYear = y === new Date().getFullYear();
+  return short ? MONTHS1[m - 1] + ' ' + y : day + ' ' + MONTHS[m - 1] + (thisYear ? '' : ' ' + y);
+}
+const MSH = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function fmtShort(d) { const [y, m, day] = d.split('-').map(Number); return day + ' ' + MSH[m - 1] + (y === new Date().getFullYear() ? '' : ' ' + y); }
+// Список серий сезона с датами. Пока расписание не загружено — сетка номеров, как раньше
+const epsLoading = new Set();
+async function fetchEps(it, n) {
+  const k = it.id + ':' + n; if (epsLoading.has(k)) return; epsLoading.add(k);
+  try { await loadEps(it, n); if (db.items[uid('tv', it.id)]) save(); if (cur === it) renderSheet(); } catch {}
+  epsLoading.delete(k);
+}
+function epsHtml(it, s, seen) {
+  const eps = (it.eps || {})[s.n];
+  if (!eps) {
+    if (openSeason === s.n && navigator.onLine && db.key) fetchEps(it, s.n);
+    if (!aired(s)) return `<p class="hint">${navigator.onLine && db.key ? 'Загружаю серии…' : 'Список серий появится при интернете.'}</p>`;
+    return `<div class="epgrid">${Array.from({ length: s.count }, (_, i) => `<button data-ep="${s.n}:${i + 1}" class="${seen.includes(i + 1) ? 'on' : ''}">${i + 1}</button>`).join('')}</div>`;
+  }
+  if (!eps.length) return `<p class="hint">Серии ещё не объявлены.</p>`;
+  return `<div class="eplist">${eps.map(x => {
+    const ok = x.d && x.d <= today(), on = seen.includes(x.e), name = /^(эпизод|серия|episode)\s*\d+$/i.test(x.t) ? '' : x.t;
+    return `<button class="ep${on ? ' on' : ''}${ok ? '' : ' future'}" ${ok ? `data-ep="${s.n}:${x.e}"` : 'disabled'}><i class="chk"></i><span class="en"><b>${x.e}</b>${name ? esc(name) : ''}</span><span class="ed">${x.d ? fmtShort(x.d) : 'дата ?'}</span></button>`;
+  }).join('')}</div>`;
+}
+function tvState(it) {
+  if (it.type !== 'tv' || !it.dv) return null;
+  const n = airedSeasons(it).length, first = it.year, lastY = (it.lastAir || '').slice(0, 4);
+  const span = n + ' ' + plural(n, 'сезон', 'сезона', 'сезонов') + (first ? ', ' + first + (lastY && lastY !== first ? '–' + lastY : '') : '');
+  if (it.tvStatus === 'Ended') return { c: 'end', t: 'Завершён · ' + span };
+  if (it.tvStatus === 'Canceled') return { c: 'end', t: 'Закрыт · ' + span };
+  const nx = it.next;
+  if (nx && nx.e > 1 && nx.date <= addDays(14)) return { c: 'live', t: 'Выходит · серия ' + nx.e + ' — ' + fmtDate(nx.date) };
+  const up = (it.seasons || []).find(s => !aired(s));
+  if (nx && nx.e === 1) return { c: 'wait', t: 'Сезон ' + nx.s + ' · ' + fmtDate(nx.date) };
+  if (nx) return { c: 'live', t: 'Выходит · серия ' + nx.e + ' — ' + fmtDate(nx.date) };
+  if (up) return { c: 'wait', t: 'Сезон ' + up.n + ' · ' + (up.date ? fmtDate(up.date, true) : 'дата не объявлена') };
+  if (/Production|Planned/.test(it.tvStatus)) return { c: 'wait', t: 'Сезон ' + (n + 1) + ' в работе · дата не объявлена' };
+  return { c: 'wait', t: 'Ждём сезон ' + (n + 1) + ' · дата не объявлена' };
+}
+const addDays = k => new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
+function movieState(it) {
+  if (it.type !== 'movie' || !it.dv) return null;
+  if (it.release && it.release > today()) return { c: 'wait', t: 'В кино с ' + fmtDate(it.release) + (it.releaseIn ? ' · ' + it.releaseIn : '') };
+  if (!it.release && /Planned|Production|Rumored/.test(it.mstatus)) return { c: 'wait', t: 'Дата выхода не объявлена' };
+  return null;
+}
+const dot = st => st ? `<i class="dot ${st.c}"></i>` : '';
+function afterEpisodes(it) {
+  const n = seenCount(it);
+  if (n && it.status === 'want') it.status = 'watching';
+  if (n && n >= total(it) && total(it)) { if (it.status !== 'watched') { it.status = 'watched'; it.watchedAt = Date.now(); } }
+  else if (it.status === 'watched' && n < total(it)) it.status = 'watching';
+  if (!n && it.status === 'watching') it.status = 'want';
+}
+
+// ---------- Экраны ----------
+// У «Посмотрю» и «Просмотрено» заголовка нет — по просьбе Андрея
+const names = { want: '', watched: '', lists: 'Подборки', search: 'Поиск' };
+function setTab(t) {
+  tab = t; $('#title').textContent = names[t];
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  render(); scrollTo(0, 0);
+}
+const statusName = s => s === 'want' ? 'В «Посмотрю»' : s === 'watched' ? 'Просмотрено' : 'Смотрю';
+function tile(it) {
+  const own = db.items[uid(it.type, it.id)], x = own || it, p = poster(x.poster);
+  return `<button class="tile" data-open="${uid(x.type, x.id)}"><div class="poster">${esc(x.title)}${p ? `<img src="${p}" alt="" loading="lazy" onerror="this.remove()">` : ''}${own ? dot(tvState(own)) : ''}</div><div class="t">${esc(x.title)}</div><div class="s">${own && tab !== 'want' && tab !== 'watched' ? `<span class="mark">${statusName(own.status)}</span>` : (x.year || '') + (x.type === 'tv' ? ' · сериал' : '')}</div></button>`;
+}
+function segBar() {
+  const s = seg[tab];
+  return `<div class="seg"><button data-seg="movie" class="${s === 'movie' ? 'on' : ''}">Фильмы</button><button data-seg="tv" class="${s === 'tv' ? 'on' : ''}">Сериалы</button></div>`;
+}
+function showRow(it) {
+  const n = nextEp(it), t = total(it), s = seenCount(it), p = poster(it.poster, 'w185');
+  return `<div class="row"><button class="poster" data-open="${uid('tv', it.id)}">${p ? `<img src="${p}" alt="" onerror="this.remove()">` : ''}</button><button class="info" data-open="${uid('tv', it.id)}"><div class="t">${esc(it.title)}</div><div class="s">${n ? `Дальше: сезон ${n.s}, серия ${n.e}` : 'Досмотрен'} · ${s} из ${t}</div><div class="bar"><i style="width:${t ? s / t * 100 : 0}%"></i></div></button>${n ? `<button class="plus" data-next="${it.id}">+1</button>` : ''}</div>`;
+}
+function render() {
+  const m = $('#main'), all = Object.values(db.items);
+  if (tab === 'want') {
+    const type = seg.want, word = type === 'movie' ? 'фильмы' : 'сериалы', f = curFolder();
+    const inF = i => !hiddenMine(i) && (!f || f.items.includes(uid(i.type, i.id)));
+    const list = all.filter(i => i.type === type && i.status === 'want' && inF(i)).sort((a, b) => b.addedAt - a.addedAt);
+    const watching = type === 'tv' ? all.filter(i => i.type === 'tv' && i.status === 'watching' && inF(i)).sort((a, b) => (b.touchedAt || 0) - (a.touchedAt || 0)) : [];
+    let h = segBar() + folderBar();
+    if (f && !list.length && !watching.length) { m.innerHTML = h + `<div class="empty">В подборке «${esc(f.name)}» пока пусто.<br>Добавь фильм через его карточку.</div>`; return; }
+    if (watching.length) h += `<div class="sec" style="margin-top:4px">Смотрю сейчас</div>${watching.map(showRow).join('')}${list.length ? '<div class="sec">Хочу посмотреть</div>' : ''}`;
+    if (watching.length && !list.length) {} else h += list.length ?`${watching.length ? '' : `<p class="count">${list.length} в списке</p>`}<div class="grid">${list.map(tile).join('')}</div>` : `<div class="empty">Здесь будут ${word}, которые хочешь посмотреть.<br>Найди их в «Поиске» или «Подборках».</div>`;
+    m.innerHTML = h;
+  } else if (tab === 'watched') {
+    const type = seg.watched, f = curFolder();
+    const list = all.filter(i => i.type === type && i.status === 'watched' && !hiddenMine(i) && (!f || f.items.includes(uid(i.type, i.id)))).sort((a, b) => (b.watchedAt || 0) - (a.watchedAt || 0));
+    if (f && !list.length) { m.innerHTML = segBar() + folderBar() + `<div class="empty">В подборке «${esc(f.name)}» пока пусто.<br>Добавь фильм через его карточку.</div>`; return; }
+    m.innerHTML = segBar() + folderBar() + (list.length ? `<p class="count">${list.length} просмотрено</p><div class="grid">${list.map(tile).join('')}</div>` : `<div class="empty">Пока пусто. Отметь ${type === 'movie' ? 'фильм' : 'сериал'} «Просмотрено» — он появится здесь.</div>`);
+  } else if (tab === 'lists') {
+    renderShelves();
+  } else {
+    m.innerHTML = `<input class="search" id="q" type="search" placeholder="Фильм или сериал" value="${esc(query)}" autocomplete="off"><div id="res"></div>`;
+    $('#q').addEventListener('input', e => { query = e.target.value; clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 350); });
+    renderResults(); if (!results) doSearch();
+  }
+}
+// Свои подборки: общий список, показываются в «Посмотрю» и «Просмотрено»
+const folderSel = { want: null, watched: null };
+const curFolder = () => (db.folders || []).find(f => f.id === folderSel[tab]) || null;
+function folderBar() {
+  const fs = db.folders || [], sel = folderSel[tab];
+  const pen = `<button data-folder="edit" class="add pen" aria-label="Изменить подборку"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>`;
+  // Карандаш — сразу после выбранной подборки, чтобы не уезжал за край экрана
+  return `<div class="chips folders"><button data-folder="" class="${!sel ? 'on' : ''}">Все</button>${fs.map(f => `<button data-folder="${f.id}" class="${sel === f.id ? 'on' : ''}">${esc(f.name)}</button>${sel === f.id ? pen : ''}`).join('')}<button data-folder="new" class="add">＋</button></div>`;
+}
+// Свои окна вместо prompt/confirm: на iPhone с экрана «Домой» и во встроенных браузерах системные окна не показываются
+function ask({ title, text = '', input = false, value = '', ok = 'Готово', danger = false, extra = '' }) {
+  return new Promise(done => {
+    const el = $('#dlg');
+    el.innerHTML = `<div class="dbox"><h3>${esc(title)}</h3>${text ? `<p>${esc(text)}</p>` : ''}${input ? `<input class="field" id="dlgin" value="${esc(value)}" autocomplete="off" maxlength="40">` : ''}
+      <div class="dbtns"><button data-a="no">Отмена</button><button data-a="ok" class="${danger ? 'danger' : 'okb'}">${esc(ok)}</button></div>${extra ? `<button data-a="extra" class="dextra">${esc(extra)}</button>` : ''}</div>`;
+    el.classList.add('open');
+    // Фокус сразу, в том же нажатии: иначе iPhone не откроет клавиатуру
+    const inp = $('#dlgin'); if (inp) { inp.focus(); inp.select(); inp.onkeydown = e => { if (e.key === 'Enter') finish('ok'); }; }
+    function finish(a) { el.classList.remove('open'); el.onclick = null; done(a === 'ok' ? (input ? inp.value.trim() || null : true) : a === 'extra' ? 'extra' : null); }
+    el.onclick = e => { const b = e.target.closest('[data-a]'); if (b) finish(b.dataset.a); else if (e.target === el) finish('no'); };
+  });
+}
+async function newFolder() {
+  const name = await ask({ title: 'Новая подборка', input: true, ok: 'Создать' }); if (!name) return null;
+  const f = { id: 'f' + Date.now(), name, items: [] }; (db.folders = db.folders || []).push(f); save(); return f;
+}
+async function editFolder() {
+  const f = curFolder(); if (!f) return;
+  const name = await ask({ title: 'Подборка', input: true, value: f.name, ok: 'Сохранить', extra: 'Удалить подборку' });
+  if (name === 'extra') {
+    if (await ask({ title: `Удалить «${f.name}»?`, text: 'Фильмы останутся в твоих списках.', ok: 'Удалить', danger: true })) { db.folders = db.folders.filter(x => x !== f); folderSel[tab] = null; }
+  } else if (name) f.name = name;
+  save(); render();
+}
+function needKey() { return `<div class="empty">Нужен бесплатный ключ TMDB.<br>Добавь его в настройках (шестерёнка вверху).</div>`; }
+function renderResults() {
+  const el = $('#res'); if (!el) return;
+  if (!db.key) { el.innerHTML = needKey(); return; }
+  if (!navigator.onLine) { el.innerHTML = `<div class="empty">Нет интернета. Поиск заработает, когда появится связь. Твои списки доступны и без него.</div>`; return; }
+  if (results === null) { el.innerHTML = `<div class="empty">Загрузка…</div>`; return; }
+  if (results.error) { el.innerHTML = `<div class="empty">${results.error}</div>`; return; }
+  if (!visible(results.list).length && !visible(results.maybe).length) { el.innerHTML = `<div class="empty">Ничего не нашлось.</div>`; return; }
+  const groups = l => { l = visible(l); const mv = l.filter(x => x.type === 'movie'), tv = l.filter(x => x.type === 'tv');
+    return (mv.length ? `<div class="sec" style="margin-top:4px">Фильмы · ${mv.length}</div><div class="grid">${mv.map(tile).join('')}</div>` : '') + (mv.length && tv.length ? '<hr class="split">' : '') + (tv.length ? `<div class="sec"${mv.length ? '' : ' style="margin-top:4px"'}>Сериалы · ${tv.length}</div><div class="grid">${tv.map(tile).join('')}</div>` : ''); };
+  el.innerHTML = (query.trim() ? '' : `<p class="count">Популярное за неделю</p>`) + groups(results.list)
+    + (results.maybe.length ? `${results.list.length ? '<hr class="split">' : ''}<p class="count" style="margin-top:${results.list.length ? 20 : 0}px">${results.list.length ? 'Возможно, ты искал' : 'Точного совпадения нет. Возможно, ты искал:'}</p>${groups(results.maybe)}` : '');
+}
+const pick = d => (d.results || []).filter(x => x.media_type === 'movie' || x.media_type === 'tv').map(x => { const it = fromApi(x); it.orig = x.original_title || x.original_name || ''; return it; });
+const RU = 'йцукенгшщзхъфывапролджэячсмитьбю', EN = "qwertyuiop[]asdfghjkl;'zxcvbnm,.";
+const swapLayout = q => [...q.toLowerCase()].map(c => RU.includes(c) ? EN[RU.indexOf(c)] : EN.includes(c) ? RU[EN.indexOf(c)] : c).join('');
+function variants(q) {
+  const words = q.toLowerCase().split(/\s+/).filter(w => w.length >= 3), out = new Set();
+  out.add(swapLayout(q));
+  for (const w of words) { out.add(w.slice(0, Math.max(3, Math.ceil(w.length * 0.6)))); if (w.length >= 6) out.add(w.slice(0, -2)); }
+  if (q.length > 4) out.add(q.slice(0, -1));
+  out.delete(q.toLowerCase());
+  return [...out].slice(0, 6);
+}
+// Похожесть строк по парам букв (0…1): прощает одну-две ошибки
+function sim(a, b) {
+  const norm = t => t.toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]/g, '');
+  a = norm(a); b = norm(b); if (!a || !b) return 0;
+  if (b.includes(a)) return 0.9;
+  const bg = t => { const m = {}; for (let i = 0; i < t.length - 1; i++) { const k = t.slice(i, i + 2); m[k] = (m[k] || 0) + 1; } return m; };
+  const A = bg(a), B = bg(b.slice(0, a.length + 3)); let n = 0, ta = 0, tb = 0;
+  for (const k in A) { ta += A[k]; if (B[k]) n += Math.min(A[k], B[k]); } for (const k in B) tb += B[k];
+  return ta + tb ? 2 * n / (ta + tb) : 0;
+}
+const errText = e => e.message === 'badkey' ? 'Ключ TMDB не подходит. Проверь его в настройках.' : 'Не получилось загрузить. Проверь интернет.';
+async function doSearch() {
+  if (!db.key || !navigator.onLine) return renderResults();
+  const q = query.trim(); results = null; renderResults();
+  try {
+    const d = q ? await api('/search/multi', { query: q, include_adult: 'false' }) : await api('/trending/all/week');
+    if (q !== query.trim()) return;
+    const list = pick(d), maybe = [];
+    // Мало результатов — возможно, опечатка: пробуем начала слов и другую раскладку, лучшие по похожести
+    if (q.length >= 3 && list.length < 6) {
+      const have = new Set(list.map(x => uid(x.type, x.id))), extra = {};
+      const res = await Promise.all(variants(q).map(v => api('/search/multi', { query: v, include_adult: 'false' }).then(pick).catch(() => [])));
+      if (q !== query.trim()) return;
+      for (const x of res.flat()) { const k = uid(x.type, x.id); if (!have.has(k) && !extra[k]) extra[k] = x; }
+      maybe.push(...Object.values(extra).map(x => ({ x, s: Math.max(sim(q, x.title), sim(q, x.orig || ''), sim(swapLayout(q), x.title), sim(swapLayout(q), x.orig || '')) })).filter(o => o.s >= (list.length ? 0.75 : 0.3)).sort((a, b) => b.s - a.s).slice(0, 18).map(o => o.x));
+    }
+    results = { list, maybe };
+  } catch (e) { results = { error: errText(e) }; }
+  renderResults();
+}
+
+// ---------- Скрытые жанры и спрятанное ----------
+const GENRES = [
+  { k: 'anime', t: 'Аниме' }, { k: 'cartoon', t: 'Мультфильмы и аниме', ids: [16] }, { k: 'horror', t: 'Ужасы', ids: [27] },
+  { k: 'doc', t: 'Документальное', ids: [99] }, { k: 'reality', t: 'Реалити и ток-шоу', ids: [10764, 10767, 10763] },
+  { k: 'kids', t: 'Детское и семейное', ids: [10762, 10751] }, { k: 'romance', t: 'Мелодрамы', ids: [10749, 10766] },
+  { k: 'music', t: 'Музыкальные', ids: [10402] }, { k: 'western', t: 'Вестерны', ids: [37] }, { k: 'war', t: 'Военные', ids: [10752, 10768] },
+  { k: 'fantasy', t: 'Фэнтези и фантастика', ids: [14, 878, 10765] }, { k: 'crime', t: 'Криминал', ids: [80] }, { k: 'comedy', t: 'Комедии', ids: [35] },
+  { k: 'thriller', t: 'Триллеры', ids: [53] }, { k: 'action', t: 'Боевики', ids: [28, 10759] }, { k: 'history', t: 'Исторические', ids: [36] }, { k: 'drama', t: 'Драмы', ids: [18] },
+];
+const isAnime = x => (x.g || []).includes(16) && x.lang === 'ja';
+// Скрыто ли из поиска, подборок и фильмографий: спрятано вручную или жанр выключен
+function hiddenX(x) {
+  if ((db.hiddenItems || {})[uid(x.type, x.id)]) return true;
+  const off = db.offGenres || []; if (!off.length) return false;
+  for (const k of off) {
+    if (k === 'anime') { if (isAnime(x)) return true; continue; }
+    const gr = GENRES.find(g => g.k === k);
+    if (gr && (x.g || []).some(id => gr.ids.includes(id))) return true;
+  }
+  return false;
+}
+const visible = l => (l || []).filter(x => !hiddenX(x));
+const hiddenMine = x => !!(db.hiddenItems || {})[uid(x.type, x.id)];
+
+// ---------- Подборки ----------
+// Сверху — три ленты: свежее популярное, в кино, скоро. Ниже — коллекции, каждый день новый набор
+const M = (e, t, p) => ({ e, t, path: '/discover/movie', type: 'movie', p: { 'vote_count.gte': '800', sort_by: 'vote_average.desc', ...p } });
+const T = (e, t, p) => ({ e, t, path: '/discover/tv', type: 'tv', p: { 'vote_count.gte': '300', sort_by: 'vote_average.desc', ...p } });
+const yearNow = new Date().getFullYear();
+const COLLECTIONS = {
+  movie: [
+    M('🚀', 'Фантастика, от которой не оторваться', { with_genres: '878', 'vote_count.gte': '3000' }),
+    M('🧠', 'Фильмы, после которых долго думаешь', { with_genres: '9648,53', 'vote_count.gte': '2000' }),
+    M('🕵️', 'Детективы и расследования', { with_genres: '80,9648' }),
+    M('🔪', 'Триллеры с неожиданным финалом', { with_genres: '53', 'vote_count.gte': '3000' }),
+    M('😂', 'Комедии на вечер', { with_genres: '35', 'vote_count.gte': '2000', without_genres: '16' }),
+    M('💥', 'Боевики, где не скучно', { with_genres: '28', 'vote_count.gte': '3000' }),
+    M('🧙', 'Фэнтези и волшебные миры', { with_genres: '14', 'vote_count.gte': '2000', without_genres: '16' }),
+    M('👻', 'Ужасы, от которых не уснёшь', { with_genres: '27', 'vote_count.gte': '1500' }),
+    M('⚔️', 'Про войну', { with_genres: '10752' }),
+    M('🏛', 'Исторические', { with_genres: '36' }),
+    M('❤️', 'Истории любви', { with_genres: '10749', 'vote_count.gte': '1500' }),
+    M('🎨', 'Мультфильмы не только для детей', { with_genres: '16', without_original_language: 'ja', 'vote_count.gte': '2000' }),
+    M('🌸', 'Аниме-фильмы', { with_genres: '16', with_original_language: 'ja', 'vote_count.gte': '500' }),
+    M('📼', 'Лучшее из 80-х', { 'primary_release_date.gte': '1980-01-01', 'primary_release_date.lte': '1989-12-31', 'vote_count.gte': '1500' }),
+    M('💿', 'Лучшее из 90-х', { 'primary_release_date.gte': '1990-01-01', 'primary_release_date.lte': '1999-12-31', 'vote_count.gte': '2000' }),
+    M('📀', 'Лучшее из 2000-х', { 'primary_release_date.gte': '2000-01-01', 'primary_release_date.lte': '2009-12-31', 'vote_count.gte': '3000' }),
+    M('🇰🇷', 'Корейское кино', { with_original_language: 'ko', 'vote_count.gte': '300' }),
+    M('🇫🇷', 'Французское кино', { with_original_language: 'fr', 'vote_count.gte': '500' }),
+    M('🇯🇵', 'Японское кино', { with_original_language: 'ja', without_genres: '16', 'vote_count.gte': '200' }),
+    M('⏱', 'Короткие — до полутора часов', { 'with_runtime.lte': '95', 'vote_count.gte': '1500' }),
+    M('🏔', 'Эпики на целый вечер', { 'with_runtime.gte': '160', 'vote_count.gte': '1500' }),
+    M('📽', 'Документальное', { with_genres: '99', 'vote_count.gte': '300' }),
+    M('🎵', 'Музыка и музыканты', { with_genres: '10402', 'vote_count.gte': '500' }),
+    M('🤠', 'Вестерны', { with_genres: '37', 'vote_count.gte': '500' }),
+    M('💎', 'Недооценённые жемчужины', { 'vote_average.gte': '7.4', 'vote_count.gte': '300', 'vote_count.lte': '2500', sort_by: 'popularity.desc' }),
+    M('🆕', 'Лучшее за ' + yearNow + ' год', { primary_release_year: String(yearNow), 'vote_count.gte': '200' }),
+    M('🏆', 'Лучшие фильмы всех времён', { 'vote_count.gte': '15000' }),
+  ],
+  tv: [
+    T('🔫', 'Криминальные сериалы', { with_genres: '80', 'vote_count.gte': '800' }),
+    T('🕵️', 'Детективные', { with_genres: '9648', 'vote_count.gte': '500' }),
+    T('🚀', 'Фантастика и фэнтези', { with_genres: '10765', 'vote_count.gte': '800' }),
+    T('😂', 'Комедийные', { with_genres: '35', without_genres: '16,99,10764', without_original_language: 'ko', 'vote_count.gte': '500' }),
+    T('🎭', 'Сильные драмы', { with_genres: '18', without_genres: '16,99', 'vote_count.gte': '1500' }),
+    T('🌸', 'Аниме-сериалы', { with_genres: '16', with_original_language: 'ja', 'vote_count.gte': '300', sort_by: 'popularity.desc' }),
+    T('🧪', 'Мультсериалы для взрослых', { with_genres: '16', without_original_language: 'ja', 'vote_count.gte': '500', without_genres: '10762' }),
+    T('⚔️', 'Война и политика', { with_genres: '10768', 'vote_count.gte': '100' }),
+    T('📽', 'Документальные', { with_genres: '99', 'vote_count.gte': '100' }),
+    T('🇰🇷', 'Корейские дорамы', { with_original_language: 'ko', 'vote_count.gte': '200' }),
+    T('🇬🇧', 'Британские сериалы', { with_origin_country: 'GB', without_genres: '99,16,10764', 'vote_count.gte': '500' }),
+    T('🇪🇸', 'Испанские сериалы', { with_original_language: 'es', 'vote_count.gte': '300' }),
+    T('🧩', 'Мини-сериалы — за пару вечеров', { with_type: '2', without_genres: '99,16', 'vote_count.gte': '300' }),
+    T('📺', 'Классика 90-х и 2000-х', { 'first_air_date.gte': '1990-01-01', 'first_air_date.lte': '2009-12-31', 'vote_count.gte': '1000' }),
+    T('🆕', 'Новые сериалы ' + yearNow + ' года', { 'first_air_date.gte': yearNow + '-01-01', 'vote_count.gte': '50', sort_by: 'popularity.desc' }),
+    T('💎', 'Недооценённые', { 'vote_average.gte': '7.8', 'vote_count.gte': '100', 'vote_count.lte': '800', sort_by: 'popularity.desc', without_genres: '16,10767,10763' }),
+    T('🍿', 'Затягивают с первой серии', { 'vote_average.gte': '8', 'vote_count.gte': '2000', without_genres: '16' }),
+    T('👨‍👩‍👧', 'Семейные', { with_genres: '10751', 'vote_count.gte': '200' }),
+    T('🤠', 'Вестерны', { with_genres: '37', 'vote_count.gte': '50' }),
+    T('🔴', 'Netflix', { with_networks: '213', 'vote_count.gte': '1000' }),
+    T('🟣', 'HBO', { with_networks: '49', 'vote_count.gte': '1000' }),
+    T('🍏', 'Apple TV+', { with_networks: '2552', 'vote_count.gte': '200' }),
+    T('📦', 'Prime Video', { with_networks: '1024', 'vote_count.gte': '500' }),
+    T('🏆', 'Лучшие сериалы всех времён', { 'vote_count.gte': '5000', without_genres: '16' }),
+  ],
+};
+const TOP = [
+  { t: 'Популярное на этой неделе' },
+];
+// Набор коллекций дня: одинаковый весь день, завтра — другой
+function dailyPick(type, n = 10) {
+  let h = 0; for (const c of today() + type) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const idx = COLLECTIONS[type].map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+  return idx.slice(0, n);
+}
+const listOf = (d, type) => (d.results || []).filter(x => (type || x.media_type) === 'movie' || (type || x.media_type) === 'tv').map(x => fromApi(x, type));
+let discLoading = {};
+async function loadTop() {
+  if (discLoading.top || !db.key || !navigator.onLine) return; discLoading.top = true;
+  try {
+    // Популярное: в тренде за день и неделю, только вышедшее за последний год или ещё не вышедшее
+    const [day, week] = await Promise.all([api('/trending/all/day'), api('/trending/all/week')]);
+    const cut = addDays(-365), seen = new Set(), pop = [];
+    for (const x of [...listOf(day), ...listOf(week)]) {
+      const k = uid(x.type, x.id), raw = (day.results.concat(week.results)).find(r => r.id === x.id);
+      // Только уже вышедшее за последний год
+      const date = raw.release_date || raw.first_air_date || '';
+      if (seen.has(k) || !date || date < cut || date > today()) continue; seen.add(k); pop.push(x);
+    }
+    const rest = await Promise.all(TOP.slice(1).map(s => api(s.path, typeof s.p === 'function' ? s.p() : s.p || {}).then(d => listOf(d, s.type)).catch(() => [])));
+    db.disc = db.disc || {}; db.disc.top = { v: 4, at: Date.now(), lists: [pop.slice(0, 20), ...rest.map(l => l.slice(0, 20))] }; save();
+  } catch (e) { if (tab === 'lists' && !(db.disc || {}).top) $('#main').innerHTML = `<div class="empty">${errText(e)}</div>`; }
+  discLoading.top = false;
+  if (tab === 'lists') renderShelves();
+}
+async function loadCols(type) {
+  if (discLoading[type] || !db.key || !navigator.onLine) return; discLoading[type] = true;
+  const pickIdx = dailyPick(type);
+  const lists = await Promise.all(pickIdx.map(i => { const c = COLLECTIONS[type][i]; const nol = c.p.without_original_language;
+    return api(c.path, c.p).then(d => listOf(nol ? { results: d.results.filter(x => x.original_language !== nol) } : d, type)).catch(() => []); }));
+  // В коллекциях только уже вышедшее
+  db.disc = db.disc || {}; db.disc[type] = { v: 4, day: today(), cols: pickIdx.map((i, k) => ({ i, items: lists[k].filter(x => x.date && x.date <= today()) })).filter(c => c.items.length) }; save();
+  discLoading[type] = false;
+  if (tab === 'lists') renderShelves();
+}
+// ---------- «Для тебя»: по твоим спискам ----------
+// Подпись набора: меняется, когда что-то добавлено или убрано, — тогда пересобираем
+const tasteSig = () => Object.values(db.items).map(i => uid(i.type, i.id) + i.status).sort().join(',');
+async function loadForYou() {
+  if (discLoading.fy || !db.key || !navigator.onLine) return; discLoading.fy = true;
+  const out = {};
+  for (const type of ['movie', 'tv']) {
+    const mine = Object.values(db.items).filter(i => i.type === type && !hiddenMine(i));
+    if (!mine.length) { out[type] = []; continue; }
+    // До 8 своих фильмов на день: просмотренные весят 2, остальные 1; набор меняется по дням
+    let h = 0; for (const c of today() + type) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const seeds = mine.map(i => ({ i, w: i.status === 'watched' ? 2 : 1, r: ((h ^ (i.id * 2654435761)) >>> 0) / 4294967296 }))
+      .sort((a, b) => (b.w + b.r) - (a.w + a.r)).slice(0, 8);
+    const recs = await Promise.all(seeds.map(sd => api('/' + type + '/' + sd.i.id + '/recommendations').then(d => ({ w: sd.w, l: d.results || [] })).catch(() => ({ w: 0, l: [] }))));
+    const score = {};
+    for (const { w, l } of recs) l.forEach((x, pos) => {
+      const it = fromApi(x, type), k = uid(type, it.id);
+      // Без мусора: только вышедшее и с заметным числом оценок
+      if (db.items[k] || !it.date || it.date > today() || (x.vote_count || 0) < 150) return;
+      const sc = score[k] || (score[k] = { it, s: 0, v: x.vote_average || 0, g: x.genre_ids || [] });
+      sc.s += w * (1 - pos / 40); // выше в рекомендациях — больше вес
+    });
+    // Чаще встречается в рекомендациях и выше оценка — выше в ленте
+    // Твой вкус по жанрам: доля твоих фильмов этого типа с таким жанром
+    const prof = {}; mine.forEach(i => (i.g || []).forEach(g => prof[g] = (prof[g] || 0) + 1 / mine.length));
+    const fit = o => o.g.length ? o.g.reduce((a, g) => a + (prof[g] || 0), 0) / o.g.length : 0;
+    const rank = o => o.s * (0.4 + o.v / 10) * (0.25 + fit(o) * 1.5);
+    out[type] = Object.values(score).sort((a, b) => rank(b) - rank(a)).map(o => o.it).slice(0, 40);
+  }
+  db.disc = db.disc || {}; db.disc.fy = { v: 3, day: today(), sig: tasteSig(), ...out }; save();
+  discLoading.fy = false;
+  if (tab === 'lists') renderShelves();
+}
+function renderShelves() {
+  const m = $('#main'), dc = db.disc || {}, type = seg.lists;
+  if (!db.key) { m.innerHTML = needKey(); return; }
+  const top = dc.top, cols = dc[type];
+  [top && top.lists, cols && cols.cols.map(c => c.items)].forEach(g => (g || []).flat().forEach(x => pool[uid(x.type, x.id)] = pool[uid(x.type, x.id)] || x));
+  let h = top ? TOP.map((s, i) => visible(top.lists[i]).length ? `<div class="shelf"><h3>${s.t}</h3><div class="scroller">${visible(top.lists[i]).map(tile).join('')}</div></div>` : '').join('')
+    : `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю…' : 'Подборки появятся, когда будет интернет.'}</div>`;
+  const fy = dc.fy;
+  if (fy) [['movie', 'Фильмы для тебя'], ['tv', 'Сериалы для тебя']].forEach(([t, title]) => {
+    const l = visible(fy[t]).filter(x => !db.items[uid(x.type, x.id)]).slice(0, 20);
+    l.forEach(x => pool[uid(x.type, x.id)] = pool[uid(x.type, x.id)] || x);
+    if (l.length) h += `<div class="shelf"><h3>${title}</h3><p class="sub">По тому, что ты смотрел и собираешься</p><div class="scroller">${l.map(tile).join('')}</div></div>`;
+  });
+  h += `<div class="seg" style="margin-top:28px">${['movie', 'tv'].map(t => `<button data-seg="${t}" class="${type === t ? 'on' : ''}">${t === 'movie' ? 'Фильмы' : 'Сериалы'}</button>`).join('')}</div>`;
+  if (cols) {
+    const shown = cols.cols.map(c => ({ i: c.i, items: visible(c.items) })).filter(c => c.items.length >= 4);
+    h += `<div class="colhead"><h3>Коллекции</h3><span>${shown.length}</span></div>` + shown.map(c => {
+      const def = COLLECTIONS[type][c.i], w = c.items.filter(x => (db.items[uid(x.type, x.id)] || {}).status === 'watched').length;
+      return `<button class="col" data-col="${c.i}"><div class="emo">${def.e}</div><div class="ct">${esc(def.t)}</div><div class="cn">${w} из ${c.items.length}</div></button>`;
+    }).join('');
+  } else h += `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю коллекции…' : 'Коллекции появятся, когда будет интернет.'}</div>`;
+  m.innerHTML = h;
+  if (!top || top.v !== 4 || Date.now() - top.at > 6 * 36e5) loadTop();
+  if (!dc.fy || dc.fy.v !== 3 || dc.fy.day !== today() || dc.fy.sig !== tasteSig()) loadForYou();
+  if (!cols || cols.day !== today() || cols.v !== 4) loadCols(type);
+}
+function openCollection(i) {
+  const type = seg.lists, def = COLLECTIONS[type][i], c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
+  if (!c) return;
+  const el = $('#page');
+  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${visible(c.items).length}</div></div><div class="grid">${visible(c.items).map(tile).join('')}</div></div>`;
+  el.classList.add('open'); el.scrollTop = 0; el.style.transform = '';
+}
+
+// ---------- Карточка ----------
+let cur = null, openSeason = null;
+async function openItem(id) {
+  const base = db.items[id] || pool[id];
+  if (!base) return;
+  cur = db.items[id] || { ...base }; openSeason = null;
+  renderSheet(); $('#sheet').classList.add('open'); $('#sheet').scrollTop = 0;
+  if ((!cur.details || cur.dv !== DV) && navigator.onLine && db.key) {
+    const it = cur;
+    try { await loadDetails(it); if (db.items[id]) save(); if (cur === it) renderSheet(); } catch {}
+  }
+}
+function closeSheet() { $('#sheet').classList.remove('open'); cur = null; render(); }
+const initials = n => n.split(' ').map(w => w[0]).slice(0, 2).join('');
+function people(list) {
+  return `<div class="people">${list.map(p => `<button class="person" data-pid="${p.id || ''}" data-pname="${esc(p.name)}"><div class="face">${esc(initials(p.name))}${p.photo ? `<img src="${IMG}w185${p.photo}" alt="" loading="lazy" onerror="this.remove()">` : ''}</div><div class="n">${esc(p.name)}</div><div class="r">${esc(p.role)}</div></button>`).join('')}</div>`;
+}
+// ---------- Похожие ----------
+async function openSimilar(it) {
+  const el = $('#person'), word = it.type === 'movie' ? 'фильмы' : 'сериалы';
+  const head = `<div class="pagehead"><h2>Похожие ${word}</h2><div class="s">на «${esc(it.title)}»</div></div>`;
+  el.innerHTML = closeBtn('px') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)">${head}<div class="empty">${navigator.onLine && db.key ? 'Загружаю…' : 'Похожие откроются, когда будет интернет.'}</div></div>`;
+  el.classList.add('open'); el.scrollTop = 0; el.style.transform = '';
+  if (!navigator.onLine || !db.key) return;
+  try {
+    // Рекомендации TMDB точнее; если их мало — добираем из «похожих»
+    const [rec, sim] = await Promise.all(['recommendations', 'similar'].map(k => api('/' + it.type + '/' + it.id + '/' + k).catch(() => ({ results: [] }))));
+    const seen = new Set([uid(it.type, it.id)]), list = [];
+    for (const x of [...rec.results, ...sim.results]) { const y = fromApi(x, it.type), k = uid(y.type, y.id); if (!seen.has(k)) { seen.add(k); list.push(y); } }
+    const vis = visible(list).slice(0, 30);
+    el.querySelector('.body').innerHTML = head + (vis.length ? `<div class="grid">${vis.map(tile).join('')}</div>` : `<div class="empty">Похожих не нашлось.</div>`);
+  } catch (e) { el.querySelector('.body').innerHTML = head + `<div class="empty">${errText(e)}</div>`; }
+}
+
+// ---------- Страница актёра / члена съёмочной группы ----------
+async function openPerson(id, name) {
+  const el = $('#person');
+  el.innerHTML = closeBtn('px') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="empty">${navigator.onLine && db.key ? 'Загружаю…' : 'Фильмография откроется, когда будет интернет.'}</div></div>`;
+  el.classList.add('open'); el.scrollTop = 0;
+  if (!navigator.onLine || !db.key) return;
+  try {
+    if (!id) { const f = await api('/search/person', { query: name }); id = f.results && f.results[0] && f.results[0].id; if (!id) throw new Error('nf'); }
+    const d = await api('/person/' + id, { append_to_response: 'combined_credits' });
+    const cc = d.combined_credits || {}, map = {};
+    for (const x of [...(cc.cast || []), ...(cc.crew || [])]) {
+      if (x.media_type !== 'movie' && x.media_type !== 'tv') continue;
+      const role = x.character || JOBS[x.job] || '';
+      // Ток-шоу, новости и «в роли себя» — шум, убираем
+      if ((x.genre_ids || []).some(g => g === 10767 || g === 10763) || /^(self|himself|herself|себя|сам|сама)\b/i.test(role)) continue;
+      if (!x.character && !JOBS[x.job]) continue;
+      const k = uid(x.media_type, x.id);
+      if (!map[k]) map[k] = { it: fromApi(x), votes: x.vote_count || 0, date: x.release_date || x.first_air_date || '' };
+    }
+    const all = Object.values(map).filter(x => !hiddenX(x.it)).sort((a, b) => b.votes - a.votes);
+    const cnt = t => all.filter(x => x.it.type === t).length;
+    const part = t => all.filter(x => x.it.type === t).slice(0, 60).map(x => x.it);
+    const mv = part('movie'), tv = part('tv'), dept = { Acting: 'Актёр', Directing: 'Режиссёр', Writing: 'Сценарист', Production: 'Продюсер', Sound: 'Композитор', Camera: 'Оператор' }[d.known_for_department] || '';
+    const born = d.birthday ? 'род. ' + fmtDate(d.birthday) : '';
+    el.innerHTML = closeBtn('px') + `<div class="hero"><div class="face big">${esc(initials(d.name || name))}${d.profile_path ? `<img src="${IMG}w342${d.profile_path}" alt="" onerror="this.remove()">` : ''}</div><h2>${esc(d.name || name)}</h2><div class="s">${[dept, born].filter(Boolean).join(' · ')}</div></div>
+    <div class="body">${mv.length ? `<div class="sec">Фильмы · ${cnt('movie')}</div><div class="grid">${mv.map(tile).join('')}</div>` : ''}${mv.length && tv.length ? '<hr class="split">' : ''}${tv.length ? `<div class="sec">Сериалы · ${cnt('tv')}</div><div class="grid">${tv.map(tile).join('')}</div>` : ''}${!mv.length && !tv.length ? '<div class="empty">Ничего не нашлось.</div>' : ''}</div>`;
+  } catch (e) { el.querySelector('.body').innerHTML = `<div class="empty">${e.message === 'nf' ? 'Не нашёл этого человека в TMDB.' : errText(e)}</div>`; }
+}
+const closeBtn = id => `<button class="iconbtn close" id="${id}" aria-label="Закрыть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`;
+// Есть русский трейлер — открываем его; нет — поиск YouTube на русском
+const trailerUrl = it => it.yt ? 'https://www.youtube.com/watch?v=' + it.yt
+  : 'https://www.youtube.com/results?search_query=' + encodeURIComponent(it.title + ' ' + (it.year || '') + (it.type === 'tv' ? ' сериал' : '') + ' трейлер на русском');
+function renderSheet() {
+  const it = cur, own = !!db.items[uid(it.type, it.id)], p = poster(it.poster);
+  const loading = !it.details && navigator.onLine && db.key;
+  const na = airedSeasons(it).length;
+  const meta = [it.year, it.type === 'tv' ? 'сериал' : 'фильм', it.type === 'tv' && it.seasons ? na + ' ' + plural(na, 'сезон', 'сезона', 'сезонов') : it.runtime ? Math.floor(it.runtime / 60) + ' ч ' + it.runtime % 60 + ' мин' : ''].filter(Boolean).join(' · ');
+  let h = `<button class="iconbtn close" id="x" aria-label="Закрыть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  <div class="hero"><div class="poster">${p ? `<img src="${p}" alt="" onerror="this.remove()">` : esc(it.title)}<a class="play" href="${trailerUrl(it)}" target="_blank" rel="noopener" aria-label="Трейлер на YouTube"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg></a></div><h2>${esc(it.title)}</h2><div class="s">${meta}</div>${(st => st ? `<div class="status ${st.c}">${dot(st)}${st.t}</div>` : '')(tvState(it) || movieState(it))}</div>
+  <div class="body"><div class="btns"><button data-st="want" class="${it.status === 'want' || it.status === 'watching' ? 'on' : ''}">${it.status === 'watching' ? 'Смотрю' : 'Посмотрю'}</button><button data-st="watched" class="${it.status === 'watched' ? 'on' : ''}">Просмотрено</button></div>`;
+  if (own) h += `<div class="chips folders" style="margin-top:14px">${(db.folders || []).map(f => `<button data-tofolder="${f.id}" class="${f.items.includes(uid(it.type, it.id)) ? 'on' : ''}">${esc(f.name)}</button>`).join('')}<button data-tofolder="new" class="add" aria-label="Новая подборка">＋</button></div>`;
+  if (it.type === 'tv') {
+    h += `<div class="sec">Сезоны</div>`;
+    if (!it.seasons) h += `<p class="hint">${loading ? 'Загружаю сезоны…' : !db.key ? 'Сезоны появятся, когда добавишь ключ TMDB в настройках.' : 'Сезоны загрузятся, когда появится интернет.'}</p>`;
+    else h += it.seasons.map(s => {
+      const seen = (it.seen || {})[s.n] || [], y = s.date ? ' <small>· ' + s.date.slice(0, 4) + '</small>' : '';
+      const open = openSeason === s.n ? ' open' : '', eps = (it.eps || {})[s.n];
+      if (!aired(s)) {
+        // Дата первой серии точнее даты сезона — берём её, чтобы совпадало со строкой статуса
+        const sd = it.next && it.next.s === s.n && it.next.e === 1 ? it.next.date : (eps && eps[0] && eps[0].d) || s.date;
+        const cnt = eps ? eps.length : s.count;
+        return `<div class="season soon${open}"><button class="head" data-season="${s.n}"><b>Сезон ${s.n}</b><span>${cnt ? cnt + ' ' + plural(cnt, 'серия', 'серии', 'серий') + ' · ' : ''}${sd ? 'с ' + fmtDate(sd) : 'дата не объявлена'}</span></button><div class="eps">${epsHtml(it, s, seen)}</div></div>`;
+      }
+      const ac = airedCount(it, s);
+      return `<div class="season${open}"><button class="head" data-season="${s.n}"><b>Сезон ${s.n}${y}</b><span>${seen.length} из ${ac}${ac < s.count ? ' · ещё ' + (s.count - ac) : ''}</span></button><div class="eps">${epsHtml(it, s, seen)}${ac ? `<button class="all" data-all="${s.n}">${seen.length >= ac ? 'Снять отметки' : 'Отметить весь сезон'}</button>` : ''}</div></div>`;
+    }).join('');
+  }
+  if (it.overview) h += `<div class="sec">Описание</div><p class="ov">${esc(it.overview)}</p>`;
+  if (it.genres && it.genres.length) h += `<div class="sec">Жанры</div><div class="chips">${it.genres.map(g => `<span>${esc(g[0].toUpperCase() + g.slice(1))}</span>`).join('')}</div>`;
+  if (it.cast && it.cast.length) h += `<div class="sec">Актёры</div>${people(it.cast)}`;
+  if (it.crew && it.crew.length) h += `<div class="sec">Съёмочная группа</div>${people(it.crew)}`;
+  if (loading && it.type === 'movie') h += `<p class="hint" style="margin-top:20px">Загружаю жанры и актёров…</p>`;
+  h += `<div class="bottom2"><button class="hide" id="hide">${hiddenMine(it) ? 'Вернуть из спрятанных' : 'Спрятать'}</button><button class="hide sim" id="similar">Похожие</button></div>`;
+  $('#sheet').innerHTML = h + '</div>';
+}
+const plural = (n, a, b, c) => n % 10 === 1 && n % 100 !== 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? b : c;
+function keep(it) {
+  const id = uid(it.type, it.id);
+  if (!db.items[id]) { it.addedAt = Date.now(); db.items[id] = it; cachePoster(it.poster); }
+  it.touchedAt = Date.now(); save();
+}
+// Повторное нажатие на выбранную кнопку убирает из списков
+function removeItem(it) {
+  const id = uid(it.type, it.id);
+  dropPoster(it.poster); delete db.items[id];
+  (db.folders || []).forEach(f => { const i = f.items.indexOf(id); if (i >= 0) f.items.splice(i, 1); });
+  save();
+  // Карточка остаётся открытой — можно сразу добавить обратно
+  cur = { ...it, status: undefined, seen: {}, rating: undefined }; delete cur.addedAt;
+  renderSheet(); toast('Убрано из списков');
+}
+function setStatus(st) {
+  const it = cur;
+  const active = it.status === st || (st === 'want' && it.status === 'watching');
+  if (active && db.items[uid(it.type, it.id)]) {
+    if (seenCount(it)) ask({ title: 'Убрать из списков?', text: `Отметки серий «${it.title}» тоже удалятся.`, ok: 'Убрать', danger: true }).then(yes => { if (yes && cur === it) removeItem(it); });
+    else removeItem(it);
+    return;
+  }
+  it.status = st;
+  if (st === 'watched') {
+    it.watchedAt = Date.now();
+    if (it.type === 'tv' && it.seasons) { it.seen = {}; airedSeasons(it).forEach(s => it.seen[s.n] = Array.from({ length: airedCount(it, s) }, (_, i) => i + 1)); }
+  }
+  if (st === 'want' && it.type === 'tv') it.seen = {};
+  keep(it); renderSheet(); toast(st === 'want' ? 'Добавлено в «Посмотрю»' : 'Отмечено как просмотренное');
+}
+function toggleEp(it, s, e) {
+  it.seen = it.seen || {}; const a = it.seen[s] = it.seen[s] || [];
+  const i = a.indexOf(e); if (i >= 0) a.splice(i, 1); else a.push(e);
+  if (!it.status) it.status = 'want';
+  afterEpisodes(it); keep(it);
+}
+
+// ---------- Настройки ----------
+// ---------- Статистика просмотренного ----------
+function stats() {
+  let movieMin = 0, showMin = 0, movies = 0, eps = 0, approx = false;
+  const actors = {}, makers = {};
+  const add = (map, p, it) => { const k = p.id || p.name; (map[k] = map[k] || { ...p, n: 0, seen: new Set() }); if (!map[k].seen.has(uid(it.type, it.id))) { map[k].seen.add(uid(it.type, it.id)); map[k].n++; } };
+  for (const it of Object.values(db.items)) {
+    if (hiddenMine(it)) continue;
+    if (it.type === 'movie') {
+      if (it.status !== 'watched') continue;
+      movies++; movieMin += it.runtime || 0; if (!it.runtime) approx = true;
+    } else {
+      // Серии: длительность из расписания сезона, иначе средняя серия сериала, иначе 45 минут
+      let n = 0;
+      for (const [sn, list] of Object.entries(it.seen || {})) for (const e of list) {
+        const m = (((it.eps || {})[sn] || []).find(x => x.e === e) || {}).m || it.runtime || 0;
+        if (!m) approx = true; showMin += m || 45; n++;
+      }
+      if (!n) continue; eps += n;
+    }
+    (it.cast || []).slice(0, 10).forEach(p => add(actors, p, it));
+    (it.crew || []).filter(p => p.role === 'Режиссёр' || p.role === 'Создатель').forEach(p => add(makers, p, it));
+  }
+  const top = m => Object.values(m).filter(p => p.n >= 2).sort((a, b) => b.n - a.n).slice(0, 10);
+  return { movieMin, showMin, movies, eps, approx, actors: top(actors), makers: top(makers) };
+}
+function statsHtml() {
+  const st = stats(), total = st.movieMin + st.showMin;
+  const hm = m => Math.floor(m / 60).toLocaleString('ru') + ' ч' + (m % 60 ? ' ' + m % 60 + ' мин' : '');
+  const fmtN = (n, a, b, c) => n.toLocaleString('ru') + ' ' + plural(n, a, b, c);
+  if (!st.movies && !st.eps) return `<div class="card"><p style="margin:0">Статистика появится, когда отметишь просмотренные фильмы или серии.</p></div>`;
+  const ppl = list => people(list.map(p => ({ ...p, role: fmtN(p.n, 'просмотр', 'просмотра', 'просмотров') })));
+  return `<div class="card stats"><p>Моя статистика${st.approx ? ' · примерно' : ''}</p>
+    <div class="big">${Math.round(total / 60).toLocaleString('ru')}<span> ${plural(Math.round(total / 60), 'час', 'часа', 'часов')}</span></div>
+    <div class="sub">${total.toLocaleString('ru')} ${plural(total, 'минута', 'минуты', 'минут')} · ${(total / 1440).toFixed(1).replace('.', ',')} суток</div>
+    <div class="sgrid"><div><b>${st.movies}</b><span>${plural(st.movies, 'фильм', 'фильма', 'фильмов')} · ${hm(st.movieMin)}</span></div><div><b>${st.eps}</b><span>${plural(st.eps, 'серия', 'серии', 'серий')} · ${hm(st.showMin)}</span></div></div>
+    ${st.actors.length ? `<div class="sec">Любимые актёры</div>${ppl(st.actors)}` : ''}
+    ${st.makers.length ? `<div class="sec">Любимые режиссёры и создатели</div>${ppl(st.makers)}` : ''}
+    ${!st.actors.length && !st.makers.length ? `<p style="margin:18px 0 0">Любимые актёры и режиссёры появятся, когда кто-то встретится хотя бы в двух просмотренных фильмах или сериалах.</p>` : ''}</div>`;
+}
+async function openSettings() {
+  cur = null;
+  let est = '';
+  try { const e = await navigator.storage.estimate(); est = `Приложение занимает около ${(e.usage / 1048576).toFixed(1)} МБ.`; } catch {}
+  const n = Object.keys(db.items).length, hid = Object.values(db.hiddenItems || {}).sort((a, b) => b.at - a.at);
+  $('#sheet').innerHTML = `<button class="iconbtn close" id="x" aria-label="Закрыть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  <div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><h2 style="margin:0 0 18px">Настройки</h2>${statsHtml()}
+  <div class="card"><p>Ключ TMDB нужен для поиска, подборок и обложек. Бесплатно: зарегистрируйся на <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a> → Настройки → API. Подойдёт «API Key» или «API Read Access Token».</p>
+  <input class="field" id="key" placeholder="Вставь ключ" value="${esc(db.key)}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="wide" id="savekey">Сохранить ключ</button></div>
+  <div class="card"><p>Скрытые жанры — пропадают из поиска, подборок и фильмографий актёров. Твои списки не трогаются.</p><div class="chips genres">${GENRES.map(g => `<button data-genre="${g.k}" class="${(db.offGenres || []).includes(g.k) ? 'on' : ''}">${g.t}</button>`).join('')}</div></div>
+  <div class="card"><p>Спрятанные фильмы и сериалы${hid.length ? ' · ' + hid.length : ''}</p>${hid.length ? hid.map(x => `<div class="hrow"><span>${esc(x.title)}<small>${x.year || ''}${x.type === 'tv' ? ' · сериал' : ''}</small></span><button data-unhide="${uid(x.type, x.id)}">Вернуть</button></div>`).join('') : '<p style="margin:0">Пока ничего. Спрятать можно кнопкой внизу карточки.</p>'}</div>
+  <div class="card"><p>В списках ${n}. ${est}</p><p>Все данные хранятся только на этом телефоне. Если удалить иконку приложения, они пропадут — поэтому иногда сохраняй копию (например, в iCloud Drive).</p>
+  <button class="wide" id="exp">Сохранить копию</button><button class="wide" id="imp">Восстановить из копии</button></div>
+  <p style="color:var(--muted);font-size:12px;text-align:center;line-height:1.5">Данные о фильмах: TMDB. Это приложение использует TMDB API, но не одобрено и не сертифицировано TMDB.</p></div>`;
+  $('#sheet').classList.add('open');
+}
+async function exportData() {
+  const data = JSON.stringify({ app: 'kino', saved: new Date().toISOString(), items: db.items, folders: db.folders || [], hiddenItems: db.hiddenItems || {}, offGenres: db.offGenres || [] }, null, 1);
+  const name = 'kino-' + new Date().toISOString().slice(0, 10) + '.json';
+  const file = new File([data], name, { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+$('#file').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d.items || typeof d.items !== 'object') throw 0;
+    if (!await ask({ title: 'Восстановить из копии?', text: `${Object.keys(d.items).length} записей. Текущие списки заменятся.`, ok: 'Восстановить', danger: true })) return;
+    db.items = d.items; if (d.folders) db.folders = d.folders; if (d.hiddenItems) db.hiddenItems = d.hiddenItems; if (d.offGenres) db.offGenres = d.offGenres; save(); closeSheet(); syncAll(); toast('Восстановлено');
+  } catch { toast('Это не файл копии'); }
+});
+
+// ---------- Нажатия ----------
+document.querySelector('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (b) setTab(b.dataset.tab); });
+$('#gear').addEventListener('click', openSettings);
+$('#main').addEventListener('click', e => {
+  const fb = e.target.closest('[data-folder]');
+  if (fb) { const v = fb.dataset.folder;
+    if (v === 'edit') return editFolder();
+    if (v === 'new') { newFolder().then(f => { if (f) { folderSel[tab] = f.id; render(); toast('Подборка создана'); } }); return; }
+    folderSel[tab] = v || null;
+    const y = scrollY; render(); scrollTo(0, y); return; }
+  const sg = e.target.closest('[data-seg]'); if (sg) { seg[tab] = sg.dataset.seg; const y = scrollY; render(); scrollTo(0, y); return; }
+  const cl = e.target.closest('[data-col]'); if (cl) return openCollection(+cl.dataset.col);
+  const nx = e.target.closest('[data-next]');
+  if (nx) { const it = db.items['tv-' + nx.dataset.next], n = nextEp(it); if (n) { toggleEp(it, n.s, n.e); toast(`Сезон ${n.s}, серия ${n.e} — просмотрена`); render(); } return; }
+  const o = e.target.closest('[data-open]'); if (o) openItem(o.dataset.open);
+});
+$('#sheet').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.dataset.pname !== undefined) return openPerson(+t.dataset.pid || 0, t.dataset.pname);
+  if (t.id === 'x') return closeSheet();
+  if (t.id === 'savekey') { db.key = $('#key').value.trim(); db.showsChecked = 0; db.disc = null; save(); results = null; toast('Ключ сохранён'); syncAll(); return; }
+  if (t.id === 'exp') return exportData();
+  if (t.id === 'imp') return $('#file').click();
+  if (t.dataset.tofolder) {
+    const id = uid(cur.type, cur.id), it = cur;
+    if (t.dataset.tofolder === 'new') { newFolder().then(f => { if (!f) return; f.items.push(id); save(); if (cur === it) renderSheet(); toast(`Добавлено в «${f.name}»`); }); return; }
+    const f = (db.folders || []).find(x => x.id === t.dataset.tofolder); if (!f) return;
+    const i = f.items.indexOf(id); if (i >= 0) f.items.splice(i, 1); else f.items.push(id);
+    save(); renderSheet(); return;
+  }
+  if (t.id === 'similar') return openSimilar(cur);
+  if (t.id === 'hide') {
+    const id = uid(cur.type, cur.id); db.hiddenItems = db.hiddenItems || {};
+    if (db.hiddenItems[id]) { delete db.hiddenItems[id]; save(); toast('Возвращено'); renderSheet(); return; }
+    const it = cur;
+    ask({ title: 'Спрятать?', text: `«${it.title}» пропадёт отовсюду. Вернуть можно в настройках.`, ok: 'Спрятать' }).then(yes => {
+      if (!yes) return;
+      db.hiddenItems[id] = { id: it.id, type: it.type, title: it.title, year: it.year, poster: it.poster, at: Date.now() };
+      save(); closeSheet(); toast('Спрятано');
+    }); return;
+  }
+  if (t.dataset.unhide) { delete db.hiddenItems[t.dataset.unhide]; save(); openSettings(); return; }
+  if (t.dataset.genre) { const k = t.dataset.genre, off = db.offGenres = db.offGenres || [], i = off.indexOf(k); if (i >= 0) off.splice(i, 1); else off.push(k); save(); results = null; t.classList.toggle('on'); return; }
+  if (t.dataset.st) return setStatus(t.dataset.st);
+  if (t.dataset.season) { const n = +t.dataset.season; openSeason = openSeason === n ? null : n; renderSheet(); return; }
+  if (t.dataset.ep) { const [s, ep] = t.dataset.ep.split(':').map(Number); toggleEp(cur, s, ep); renderSheet(); return; }
+  if (t.dataset.all) {
+    const s = +t.dataset.all, ac = airedCount(cur, cur.seasons.find(x => x.n === s)); cur.seen = cur.seen || {};
+    cur.seen[s] = (cur.seen[s] || []).length >= ac ? [] : Array.from({ length: ac }, (_, i) => i + 1);
+    if (!cur.status) cur.status = 'want';
+    afterEpisodes(cur); keep(cur); renderSheet();
+  }
+});
+$('#page').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.id === 'pgx') return closePage();
+  if (t.dataset.open) openItem(t.dataset.open);
+});
+function closePage() { $('#page').classList.remove('open'); render(); }
+
+// ---------- Свайп вниз закрывает окно ----------
+function swipeClose(el, close) {
+  let y0 = null, dy = 0;
+  el.addEventListener('touchstart', e => { if (el.scrollTop <= 0 && el.classList.contains('open')) { y0 = e.touches[0].clientY; dy = 0; } else y0 = null; }, { passive: true });
+  el.addEventListener('touchmove', e => {
+    if (y0 === null) return;
+    dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || el.scrollTop > 0) { el.classList.remove('dragging'); el.style.transform = ''; if (dy < 0) y0 = null; return; }
+    e.preventDefault(); el.classList.add('dragging'); el.style.transform = `translateY(${dy}px)`;
+  }, { passive: false });
+  el.addEventListener('touchend', () => {
+    if (y0 === null) return; y0 = null; el.classList.remove('dragging');
+    if (dy > 110) { el.style.transform = 'translateY(100%)'; setTimeout(() => { close(); el.style.transform = ''; }, 250); } else el.style.transform = '';
+  });
+}
+swipeClose($('#sheet'), () => closeSheet());
+swipeClose($('#person'), () => $('#person').classList.remove('open'));
+swipeClose($('#page'), () => closePage());
+
+$('#person').addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  if (t.id === 'px') return $('#person').classList.remove('open');
+  if (t.dataset.open) { $('#person').classList.remove('open'); openItem(t.dataset.open); }
+});
+addEventListener('online', () => { syncAll(); if (tab === 'search') doSearch(); if (tab === 'lists') renderShelves(); });
+addEventListener('offline', () => { if (tab === 'search') renderResults(); });
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+render(); syncAll();
+</script>
+</body>
+</html>
