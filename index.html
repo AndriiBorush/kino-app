@@ -437,7 +437,7 @@ function afterEpisodes(it) {
 // У «Посмотрю» и «Просмотрено» заголовка нет — по просьбе Андрея
 const names = { want: '', watched: '', lists: 'Подборки', search: 'Поиск' };
 function setTab(t) {
-  if (t === 'lists' && tab !== 'lists') { fyMix = {}; colMix = {}; }
+  if (t === 'lists' && tab !== 'lists') { fyMix = {}; colMix = {}; for (const k in fyMore) delete fyMore[k]; }
   tab = t; $('#title').textContent = names[t];
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   render(); scrollTo(0, 0);
@@ -457,6 +457,7 @@ function segBar() {
 let airF = 'all';
 try { airF = localStorage.getItem('kino-air') || 'all'; } catch {}
 function airBar() {
+  if (db.hideAir) return '';
   return `<div class="airbar">${[['live', 'Идёт'], ['end', 'Закончен']].map(([k, t]) => `<button data-air="${k}" class="${airF === k ? 'on' : ''}">${t}</button>`).join('')}</div>`;
 }
 function showRow(it) {
@@ -467,7 +468,7 @@ function render() {
   const m = $('#main'), all = Object.values(db.items);
   if (tab === 'want') {
     const type = seg.want, word = type === 'movie' ? 'фильмы' : 'сериалы', f = curFolder();
-    const air = i => type !== 'tv' || airF === 'all' || (airF === 'end') === /Ended|Canceled/.test(i.tvStatus || '');
+    const air = i => type !== 'tv' || db.hideAir || airF === 'all' || (airF === 'end') === /Ended|Canceled/.test(i.tvStatus || '');
     const inF = i => !hiddenMine(i) && (!f || f.items.includes(uid(i.type, i.id))) && air(i);
     const list = all.filter(i => i.type === type && i.status === 'want' && inF(i)).sort((a, b) => b.addedAt - a.addedAt);
     const watching = type === 'tv' ? all.filter(i => i.type === 'tv' && i.status === 'watching' && inF(i)).sort((a, b) => (b.touchedAt || 0) - (a.touchedAt || 0)) : [];
@@ -506,8 +507,9 @@ function render() {
 }
 // Свои подборки: общий список, показываются в «Посмотрю» и «Просмотрено»
 const folderSel = { want: null, watched: null };
-const curFolder = () => (db.folders || []).find(f => f.id === folderSel[tab]) || null;
+const curFolder = () => db.hideFolders ? null : (db.folders || []).find(f => f.id === folderSel[tab]) || null;
 function folderBar() {
+  if (db.hideFolders) return ''; // спрятано в настройках
   const fs = db.folders || [], sel = folderSel[tab];
   const pen = `<button data-folder="edit" class="add pen" aria-label="Изменить подборку"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>`;
   // Карандаш — сразу после выбранной подборки, чтобы не уезжал за край экрана
@@ -763,12 +765,40 @@ function fyOrder(t, l) {
   const key = l.map(x => x.id).join();
   if (fyMix[t] && fyMix[t].key === key) return fyMix[t].l;
   // Внутри одного захода порядок не прыгает: добавленное просто уходит, хвост дополняется
-  if (fyMix[t]) { const ids = new Set(l.map(x => x.id)), keep = fyMix[t].l.filter(x => ids.has(x.id)), had = new Set(keep.map(x => x.id)); fyMix[t] = { key, l: keep.concat(l.filter(x => !had.has(x.id)).slice(0, 20 - keep.length)) }; return fyMix[t].l; }
+  if (fyMix[t]) { const ids = new Set(l.map(x => x.id)), keep = fyMix[t].l.filter(x => ids.has(x.id)), had = new Set(keep.map(x => x.id)); fyMix[t] = { key, l: keep.concat(l.filter(x => !had.has(x.id))) }; return fyMix[t].l; }
   const seen = db.fySeen || (db.fySeen = {});
   const out = l.map((x, i) => ({ x, s: (0.5 + Math.random()) * 0.6 ** (seen[uid(x.type, x.id)] || 0) / (1 + i / 15) }))
-    .sort((a, b) => b.s - a.s).map(o => o.x).slice(0, 20);
-  out.forEach(x => { const k = uid(x.type, x.id); seen[k] = (seen[k] || 0) + 1; }); save();
+    .sort((a, b) => b.s - a.s).map(o => o.x);
+  out.slice(0, 20).forEach(x => { const k = uid(x.type, x.id); seen[k] = (seen[k] || 0) + 1; }); save(); // «видел» — только первые 20, что на экране
   fyMix[t] = { key, l: out }; return out;
+}
+// Ещё рекомендации для «Для тебя»: идём по всем своим фильмам/сериалам, всё глубже по страницам TMDB
+const fyMore = {};
+async function moreFy(t, sc) {
+  const st = fyMore[t] = fyMore[t] || { i: 0, busy: false, seeds: null };
+  if (st.busy || !navigator.onLine || !db.key || !fyMix[t]) return;
+  // По кругу: страница 1 у всех своих, потом страница 2 у всех и так до 20-й — у TMDB рекомендаций бывает до 40 страниц
+  if (!st.seeds) { const mine = Object.values(db.items).filter(i => i.type === t && !hiddenMine(i)).sort(() => Math.random() - 0.5); st.seeds = []; for (let p = 1; p <= 20; p++) mine.forEach(i => st.seeds.push([i.id, p])); }
+  if (st.i >= st.seeds.length) return;
+  st.busy = true;
+  const have = new Set(fyMix[t].l.map(x => x.id)), add = [];
+  while (add.length < 10 && st.i < st.seeds.length) {
+    const [id, page] = st.seeds[st.i++];
+    try {
+      const d = await api('/' + t + '/' + id + '/recommendations', { page });
+      for (const x of d.results || []) {
+        const it = fromApi(x, t);
+        if (have.has(it.id) || db.items[uid(t, it.id)] || !it.date || it.date > today() || (x.vote_count || 0) < 150 || !visible([it]).length) continue;
+        have.add(it.id); add.push(it);
+      }
+    } catch {}
+  }
+  st.busy = false;
+  if (!add.length) return;
+  // Добавляем и в сохранённую ленту — чтобы при перерисовке догруженное не пропадало
+  const fy = (db.disc || {}).fy; if (fy && fy[t]) { fy[t].push(...add); save(); }
+  fyMix[t].l.push(...add); fyMix[t].key = null;
+  if (sc.isConnected) sc.insertAdjacentHTML('beforeend', add.map(tile).join(''));
 }
 function renderShelves() {
   const m = $('#main'), dc = db.disc || {}, type = seg.lists;
@@ -781,7 +811,7 @@ function renderShelves() {
   if (fy) [['movie', 'Фильмы для тебя'], ['tv', 'Сериалы для тебя']].forEach(([t, title]) => {
     const l = fyOrder(t, visible(fy[t]).filter(x => !db.items[uid(x.type, x.id)]));
     l.forEach(x => pool[uid(x.type, x.id)] = pool[uid(x.type, x.id)] || x);
-    if (l.length) h += `<div class="shelf"><h3>${title}</h3><p class="sub">По тому, что ты смотрел и собираешься</p><div class="scroller">${l.map(tile).join('')}</div></div>`;
+    if (l.length) h += `<div class="shelf"><h3>${title}</h3><p class="sub">По тому, что ты смотрел и собираешься</p><div class="scroller" data-fy="${t}">${l.map(tile).join('')}</div></div>`;
   });
   h += `<div class="seg" style="margin-top:28px">${['movie', 'tv'].map(t => `<button data-seg="${t}" class="${type === t ? 'on' : ''}">${t === 'movie' ? 'Фильмы' : 'Сериалы'}</button>`).join('')}</div>`;
   if (cols) {
@@ -799,6 +829,8 @@ function renderShelves() {
       + (type === 'movie' ? fc('#c9a23a', '#e2b84a', 'data-oscar="1"', 'Премия Оскар', 'Победители по годам') : '') + '</div>';
   } else h += `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю коллекции…' : 'Коллекции появятся, когда будет интернет.'}</div>`;
   m.innerHTML = h;
+  // «Для тебя» листается бесконечно: у края догружаем ещё рекомендации
+  m.querySelectorAll('[data-fy]').forEach(sc => sc.addEventListener('scroll', () => { if (sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 500) moreFy(sc.dataset.fy, sc); }, { passive: true }));
   if (!top || top.v !== 4 || Date.now() - top.at > 6 * 36e5) loadTop();
   if (!dc.fy || dc.fy.v !== 3 || dc.fy.day !== today() || dc.fy.sig !== tasteSig()) loadForYou();
   if (!cols || cols.day !== today() || cols.v !== 8) loadCols(type);
@@ -1098,6 +1130,7 @@ async function openSettings() {
   <div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><h2 style="margin:0 0 18px">Настройки</h2>${statsHtml()}
   <div class="card"><p>Ключ TMDB нужен для поиска, подборок и обложек. Бесплатно: зарегистрируйся на <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a> → Настройки → API. Подойдёт «API Key» или «API Read Access Token».</p>
   <input class="field" id="key" placeholder="Вставь ключ" value="${esc(db.key)}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="wide" id="savekey">Сохранить ключ</button></div>
+  <div class="card"><p>Что показывать в «Посмотрю» и «Просмотрено». Белое — показывается. Нажми, чтобы спрятать или вернуть.</p><div class="chips"><button data-show="hideFolders" class="${db.hideFolders ? '' : 'on'}">Мои подборки</button><button data-show="hideAir" class="${db.hideAir ? '' : 'on'}">Идёт / Закончен</button></div></div>
   <div class="card"><p>Скрытые жанры — пропадают из поиска, подборок и фильмографий актёров. Твои списки не трогаются.</p><div class="chips genres">${GENRES.map(g => `<button data-genre="${g.k}" class="${(db.offGenres || []).includes(g.k) ? 'on' : ''}">${g.t}</button>`).join('')}</div></div>
   <div class="card"><p>Спрятанные фильмы и сериалы${hid.length ? ' · ' + hid.length : ''}</p>${hid.length ? hid.map(x => `<div class="hrow"><span>${esc(x.title)}<small>${x.year || ''}${x.type === 'tv' ? ' · сериал' : ''}</small></span><button data-unhide="${uid(x.type, x.id)}">Вернуть</button></div>`).join('') : '<p style="margin:0">Пока ничего. Спрятать можно кнопкой внизу карточки.</p>'}</div>
   <div class="card"><p>В списках ${n}. ${est}</p><p>Все данные хранятся только на этом телефоне. Если удалить иконку приложения, они пропадут — поэтому иногда сохраняй копию (например, в iCloud Drive).</p>
@@ -1169,6 +1202,7 @@ function layerClick(e, L) {
     }); return;
   }
   if (t.dataset.unhide) { delete db.hiddenItems[t.dataset.unhide]; save(); openSettings(); return; }
+  if (t.dataset.show) { const k = t.dataset.show; db[k] = !db[k]; save(); t.classList.toggle('on', !db[k]); refreshMain(); return; }
   if (t.dataset.genre) { const k = t.dataset.genre, off = db.offGenres = db.offGenres || [], i = off.indexOf(k); if (i >= 0) off.splice(i, 1); else off.push(k); save(); results = null; t.classList.toggle('on'); return; }
   if (t.dataset.st) return setStatus(t.dataset.st);
   if (t.dataset.season) { const n = +t.dataset.season; openSeason = openSeason === n ? null : n; renderSheet(); return; }
