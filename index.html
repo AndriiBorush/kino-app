@@ -37,6 +37,11 @@ nav button.on{color:var(--gold)}
 .tile .s{font-size:12px;color:var(--muted);margin-top:2px}
 .empty{color:var(--muted);text-align:center;padding:60px 20px;line-height:1.5}
 .count{color:var(--muted);font-size:14px;margin:0 0 14px}
+.lsec{border:1px solid var(--line);border-radius:18px;padding:14px 12px 2px;margin:4px -4px 18px;background:var(--card)}
+.lsec.go{border-color:rgba(95,211,154,.45);background:linear-gradient(180deg,rgba(95,211,154,.10),var(--card) 120px)}
+.lhd{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-size:20px;font-weight:700;letter-spacing:-.2px}
+.lhd i{width:9px;height:9px;border-radius:50%;background:var(--gold)}
+.lsec.go .lhd i{background:#5fd39a}
 .sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:24px 0 10px}
 .row{display:flex;gap:12px;align-items:center;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line);margin-bottom:10px;width:100%}
 .row .poster{width:56px;flex:none;border-radius:8px}
@@ -484,10 +489,13 @@ function render() {
       }
     }
     if (f && !list.length && !watching.length) { m.innerHTML = h + `<div class="empty">В подборке «${esc(f.name)}» пока пусто.<br>Добавь фильм через его карточку.</div>`; return; }
-    // Сначала «Хочу посмотреть», ниже «Начал смотреть» — по просьбе Андрея
-    if (list.length) h += `${watching.length ? '<div class="sec" style="margin-top:4px">Хочу посмотреть</div>' : `<p class="count">${list.length} в списке</p>`}<div class="grid">${list.map(i => tile(i)).join('')}</div>`;
+    // Оба раздела есть — каждый в своей рамке с заголовком; «Начал смотреть» — с зелёным оттенком
+    const box = (cls, t, l, f) => `<section class="lsec${cls}"><div class="lhd"><i></i>${t}</div><div class="grid">${l.map(f).join('')}</div></section>`;
+    // Порядок разделов меняется в настройках (db.watchingFirst)
+    if (list.length && watching.length) { const a = box('', 'Хочу посмотреть', list, i => tile(i)), b = box(' go', 'Начал смотреть', watching, watchTile); h += db.watchingFirst ? b + a : a + b; }
+    else if (list.length) h += `<p class="count">${list.length} в списке</p><div class="grid">${list.map(i => tile(i)).join('')}</div>`;
     else if (!watching.length) h += `<div class="empty">Здесь будут ${word}, которые хочешь посмотреть.<br>Найди их в «Поиске» или «Подборках».</div>`;
-    if (watching.length) h += `<div class="sec"${list.length ? '' : ' style="margin-top:4px"'}>Начал смотреть</div><div class="grid">${watching.map(watchTile).join('')}</div>`;
+    else if (watching.length) h += box(' go', 'Начал смотреть', watching, watchTile);
     m.innerHTML = h;
   } else if (tab === 'watched') {
     const type = seg.watched, f = curFolder();
@@ -1131,6 +1139,7 @@ async function openSettings() {
   <div class="card"><p>Ключ TMDB нужен для поиска, подборок и обложек. Бесплатно: зарегистрируйся на <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org</a> → Настройки → API. Подойдёт «API Key» или «API Read Access Token».</p>
   <input class="field" id="key" placeholder="Вставь ключ" value="${esc(db.key)}" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="wide" id="savekey">Сохранить ключ</button></div>
   <div class="card"><p>Что показывать в «Посмотрю» и «Просмотрено». Белое — показывается. Нажми, чтобы спрятать или вернуть.</p><div class="chips"><button data-show="hideFolders" class="${db.hideFolders ? '' : 'on'}">Мои подборки</button><button data-show="hideAir" class="${db.hideAir ? '' : 'on'}">Идёт / Закончен</button></div></div>
+  <div class="card"><p>Что выше в «Посмотрю → Сериалы»</p><div class="chips"><button data-order="0" class="${db.watchingFirst ? '' : 'on'}">Хочу посмотреть</button><button data-order="1" class="${db.watchingFirst ? 'on' : ''}">Начал смотреть</button></div></div>
   <div class="card"><p>Скрытые жанры — пропадают из поиска, подборок и фильмографий актёров. Твои списки не трогаются.</p><div class="chips genres">${GENRES.map(g => `<button data-genre="${g.k}" class="${(db.offGenres || []).includes(g.k) ? 'on' : ''}">${g.t}</button>`).join('')}</div></div>
   <div class="card"><p>Спрятанные фильмы и сериалы${hid.length ? ' · ' + hid.length : ''}</p>${hid.length ? hid.map(x => `<div class="hrow"><span>${esc(x.title)}<small>${x.year || ''}${x.type === 'tv' ? ' · сериал' : ''}</small></span><button data-unhide="${uid(x.type, x.id)}">Вернуть</button></div>`).join('') : '<p style="margin:0">Пока ничего. Спрятать можно кнопкой внизу карточки.</p>'}</div>
   <div class="card"><p>В списках ${n}. ${est}</p><p>Все данные хранятся только на этом телефоне. Если удалить иконку приложения, они пропадут — поэтому иногда сохраняй копию (например, в iCloud Drive).</p>
@@ -1202,6 +1211,7 @@ function layerClick(e, L) {
     }); return;
   }
   if (t.dataset.unhide) { delete db.hiddenItems[t.dataset.unhide]; save(); openSettings(); return; }
+  if (t.dataset.order) { db.watchingFirst = t.dataset.order === '1'; save(); t.parentNode.querySelectorAll('[data-order]').forEach(b => b.classList.toggle('on', b === t)); refreshMain(); return; }
   if (t.dataset.show) { const k = t.dataset.show; db[k] = !db[k]; save(); t.classList.toggle('on', !db[k]); refreshMain(); return; }
   if (t.dataset.genre) { const k = t.dataset.genre, off = db.offGenres = db.offGenres || [], i = off.indexOf(k); if (i >= 0) off.splice(i, 1); else off.push(k); save(); results = null; t.classList.toggle('on'); return; }
   if (t.dataset.st) return setStatus(t.dataset.st);
