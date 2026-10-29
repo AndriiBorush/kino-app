@@ -814,8 +814,9 @@ let fyMix = {}, colMix = {};
 function fyOrder(t, l) {
   const key = l.map(x => x.id).join();
   if (fyMix[t] && fyMix[t].key === key) return fyMix[t].l;
-  // Внутри одного захода порядок не прыгает: добавленное просто уходит, хвост дополняется
-  if (fyMix[t]) { const ids = new Set(l.map(x => x.id)), keep = fyMix[t].l.filter(x => ids.has(x.id)), had = new Set(keep.map(x => x.id)); fyMix[t] = { key, l: keep.concat(l.filter(x => !had.has(x.id))) }; return fyMix[t].l; }
+  // Внутри одного захода порядок не прыгает: добавленное просто уходит, хвост дополняется.
+  // Лента могла перезагрузиться под новый вкус — показанное раньше всё равно остаётся на месте
+  if (fyMix[t]) { const keep = visible(fyMix[t].l).filter(x => !db.items[uid(x.type, x.id)]), had = new Set(keep.map(x => x.id)); fyMix[t] = { key, l: keep.concat(l.filter(x => !had.has(x.id))) }; return fyMix[t].l; }
   const seen = db.fySeen || (db.fySeen = {});
   const out = l.map((x, i) => ({ x, s: (0.5 + Math.random()) * 0.6 ** (seen[uid(x.type, x.id)] || 0) / (1 + i / 15) }))
     .sort((a, b) => b.s - a.s).map(o => o.x);
