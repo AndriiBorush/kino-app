@@ -84,6 +84,14 @@ nav button.on{color:var(--gold)}
 .col .emo{font-size:40px;line-height:1}
 .col .ct{font-size:19px;font-weight:600;margin-top:12px;letter-spacing:-.2px;line-height:1.25}
 .col .cn{color:var(--muted);font-size:15px;margin-top:6px}
+.fixgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.fixc{text-align:left;padding:16px 14px;border-radius:16px;border:1px solid var(--b);background:linear-gradient(160deg,var(--b) -60%,var(--card) 70%);min-height:96px}
+.fixc .ct{font-size:19px;font-weight:700;letter-spacing:-.2px;color:var(--c)}
+.fixc .cn{color:var(--muted);font-size:14px;margin-top:6px}
+.oscl{margin:0;padding:0;list-style:none}
+.oscl li{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+.oscl li:last-child{border-bottom:0}
+.oscl svg{width:9px;height:20px;fill:#e2b84a;flex:none}
 .dragging{transition:none!important}
 .face.big{width:140px;height:140px;font-size:40px}
 hr.split{border:0;border-top:1px solid var(--line);margin:28px 0 4px}
@@ -148,6 +156,13 @@ button.person{display:block}
 .folders::-webkit-scrollbar{display:none}
 .chips button{flex:none;padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px;white-space:nowrap}
 .chips button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.osc{position:absolute;top:6px;left:6px;z-index:2;display:flex;flex-wrap:wrap;gap:1px;max-width:calc(100% - 30px);padding:3px 4px;border-radius:7px;background:rgba(11,13,18,.8)}
+.osc svg{width:7px;height:16px;fill:#e2b84a}
+.years{display:flex;gap:8px;overflow-x:auto;margin:0 -16px 16px;padding:0 16px;scrollbar-width:none}
+.years::-webkit-scrollbar{display:none}
+.years button{flex:none;padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
+.years button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.more{display:block;width:100%;margin:18px 0 8px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:15px}
 .airbar{display:flex;justify-content:center;gap:8px;margin-bottom:14px}
 .airbar button{padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
 .airbar button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
@@ -422,7 +437,7 @@ function afterEpisodes(it) {
 // У «Посмотрю» и «Просмотрено» заголовка нет — по просьбе Андрея
 const names = { want: '', watched: '', lists: 'Подборки', search: 'Поиск' };
 function setTab(t) {
-  if (t === 'lists' && tab !== 'lists') fyMix = {};
+  if (t === 'lists' && tab !== 'lists') { fyMix = {}; colMix = {}; }
   tab = t; $('#title').textContent = names[t];
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   render(); scrollTo(0, 0);
@@ -605,12 +620,18 @@ const visible = l => (l || []).filter(x => !hiddenX(x));
 const hiddenMine = x => !!(db.hiddenItems || {})[uid(x.type, x.id)];
 
 // ---------- Подборки ----------
-// Сверху — три ленты: свежее популярное, в кино, скоро. Ниже — коллекции, каждый день новый набор
+// Сверху — три ленты: свежее популярное, в кино, скоро. Ниже — коллекции, при каждом заходе новый набор, стриминги всегда внизу
 const M = (e, t, p) => ({ e, t, path: '/discover/movie', type: 'movie', p: { 'vote_count.gte': '800', sort_by: 'vote_average.desc', ...p } });
 const T = (e, t, p) => ({ e, t, path: '/discover/tv', type: 'tv', p: { 'vote_count.gte': '300', sort_by: 'vote_average.desc', ...p } });
 const yearNow = new Date().getFullYear();
+// Стриминги — всегда внизу, по популярности, чтобы новое у них сразу попадало в коллекцию
+const fixed = (c, b, col) => ({ ...c, fixed: true, b, c: col });
+const PROV = id => ({ with_watch_providers: id, watch_region: 'US', 'vote_count.gte': '200', sort_by: 'popularity.desc' });
 const COLLECTIONS = {
   movie: [
+    fixed(M('🟣', 'HBO Max', PROV('1899|384')), '#7b3fe4', '#b99cff'),
+    fixed(M('🔴', 'Netflix', PROV('8')), '#e50914', '#ff4a52'),
+    fixed(M('🍏', 'Apple TV+', PROV('350')), '#8e8e93', '#e5e5ea'),
     M('🚀', 'Фантастика, от которой не оторваться', { with_genres: '878', 'vote_count.gte': '3000' }),
     M('🧠', 'Фильмы, после которых долго думаешь', { with_genres: '9648,53', 'vote_count.gte': '2000' }),
     M('🕵️', 'Детективы и расследования', { with_genres: '80,9648' }),
@@ -659,9 +680,9 @@ const COLLECTIONS = {
     T('🍿', 'Затягивают с первой серии', { 'vote_average.gte': '8', 'vote_count.gte': '2000', without_genres: '16' }),
     T('👨‍👩‍👧', 'Семейные', { with_genres: '10751', 'vote_count.gte': '200' }),
     T('🤠', 'Вестерны', { with_genres: '37', 'vote_count.gte': '50' }),
-    T('🔴', 'Netflix', { with_networks: '213', 'vote_count.gte': '1000' }),
-    T('🟣', 'HBO', { with_networks: '49', 'vote_count.gte': '1000' }),
-    T('🍏', 'Apple TV+', { with_networks: '2552', 'vote_count.gte': '200' }),
+    fixed(T('🟣', 'HBO', { with_networks: '49', 'vote_count.gte': '100', sort_by: 'popularity.desc' }), '#7b3fe4', '#b99cff'),
+    fixed(T('🔴', 'Netflix', { with_networks: '213', 'vote_count.gte': '100', sort_by: 'popularity.desc' }), '#e50914', '#ff4a52'),
+    fixed(T('🍏', 'Apple TV+', { with_networks: '2552', 'vote_count.gte': '50', sort_by: 'popularity.desc' }), '#8e8e93', '#e5e5ea'),
     T('📦', 'Prime Video', { with_networks: '1024', 'vote_count.gte': '500' }),
     T('🏆', 'Лучшие сериалы всех времён', { 'vote_count.gte': '5000', without_genres: '16' }),
   ],
@@ -669,14 +690,6 @@ const COLLECTIONS = {
 const TOP = [
   { t: 'Популярное на этой неделе' },
 ];
-// Набор коллекций дня: одинаковый весь день, завтра — другой
-function dailyPick(type, n = 10) {
-  let h = 0; for (const c of today() + type) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  const rnd = () => { h = (h + 0x6D2B79F5) >>> 0; let t = h; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  const idx = COLLECTIONS[type].map((_, i) => i);
-  for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
-  return idx.slice(0, n);
-}
 const listOf = (d, type) => (d.results || []).filter(x => (type || x.media_type) === 'movie' || (type || x.media_type) === 'tv').map(x => fromApi(x, type));
 let discLoading = {};
 async function loadTop() {
@@ -699,11 +712,14 @@ async function loadTop() {
 }
 async function loadCols(type) {
   if (discLoading[type] || !db.key || !navigator.onLine) return; discLoading[type] = true;
-  const pickIdx = dailyPick(type);
+  // Грузим все коллекции раз в день — при каждом заходе показываем другой набор
+  const pickIdx = COLLECTIONS[type].map((_, i) => i);
   const lists = await Promise.all(pickIdx.map(i => { const c = COLLECTIONS[type][i]; const nol = c.p.without_original_language;
-    return api(c.path, c.p).then(d => listOf(nol ? { results: d.results.filter(x => x.original_language !== nol) } : d, type)).catch(() => []); }));
+    // Ток-шоу, новости, реалити и детское в стримингах — шум
+    const ok = x => (!nol || x.original_language !== nol) && !(c.fixed && noise(x));
+    return api(c.path, c.p).then(d => listOf({ results: (d.results || []).filter(ok) }, type)).catch(() => []); }));
   // В коллекциях только уже вышедшее
-  db.disc = db.disc || {}; db.disc[type] = { v: 4, day: today(), cols: pickIdx.map((i, k) => ({ i, items: lists[k].filter(x => x.date && x.date <= today()) })).filter(c => c.items.length) }; save();
+  db.disc = db.disc || {}; db.disc[type] = { v: 8, day: today(), cols: pickIdx.map((i, k) => ({ i, items: lists[k].filter(x => x.date && x.date <= today()) })).filter(c => c.items.length) }; save();
   discLoading[type] = false;
   if (tab === 'lists' && !stack.length) refreshMain();
 }
@@ -742,7 +758,7 @@ async function loadForYou() {
 }
 // Лента «Для тебя» перемешивается при каждом заходе в «Подборки»:
 // лучшие совпадения чаще впереди, а показанное и не взятое уходит назад
-let fyMix = {};
+let fyMix = {}, colMix = {};
 function fyOrder(t, l) {
   const key = l.map(x => x.id).join();
   if (fyMix[t] && fyMix[t].key === key) return fyMix[t].l;
@@ -769,16 +785,23 @@ function renderShelves() {
   });
   h += `<div class="seg" style="margin-top:28px">${['movie', 'tv'].map(t => `<button data-seg="${t}" class="${type === t ? 'on' : ''}">${t === 'movie' ? 'Фильмы' : 'Сериалы'}</button>`).join('')}</div>`;
   if (cols) {
-    const shown = cols.cols.map(c => ({ i: c.i, items: fresh(c.items) })).filter(c => c.items.length >= 4);
+    const ok = cols.cols.map(c => ({ i: c.i, items: fresh(c.items) })).filter(c => c.items.length >= 4 && COLLECTIONS[type][c.i]);
+    // Обычные коллекции — 10 случайных, новый набор при каждом заходе; стриминги — всегда внизу
+    if (!colMix[type]) colMix[type] = ok.filter(c => !COLLECTIONS[type][c.i].fixed).map(c => c.i).sort(() => Math.random() - 0.5).slice(0, 10);
+    const shown = colMix[type].map(i => ok.find(c => c.i === i)).filter(Boolean), fix = ok.filter(c => COLLECTIONS[type][c.i].fixed);
     h += `<div class="colhead"><h3>Коллекции</h3><span>${shown.length}</span></div>` + shown.map(c => {
       const def = COLLECTIONS[type][c.i], n = c.items.length;
       return `<button class="col" data-col="${c.i}"><div class="emo">${def.e}</div><div class="ct">${esc(def.t)}</div><div class="cn">${n} ${plural(n, 'новый', 'новых', 'новых')}</div></button>`;
     }).join('');
+    // Постоянные: стриминги и «Оскар» — отдельным блоком в цветах сервисов
+    const fc = (b, c, attr, t, sub) => `<button class="fixc" style="--b:${b};--c:${c}" ${attr}><div class="ct">${t}</div><div class="cn">${sub}</div></button>`;
+    h += `<div class="colhead" style="margin-top:30px"><h3>Избранные подборки</h3></div><div class="fixgrid">` + fix.map(c => { const def = COLLECTIONS[type][c.i]; return fc(def.b, def.c, `data-col="${c.i}"`, esc(def.t), 'Весь каталог'); }).join('')
+      + (type === 'movie' ? fc('#c9a23a', '#e2b84a', 'data-oscar="1"', 'Премия Оскар', 'Победители по годам') : '') + '</div>';
   } else h += `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю коллекции…' : 'Коллекции появятся, когда будет интернет.'}</div>`;
   m.innerHTML = h;
   if (!top || top.v !== 4 || Date.now() - top.at > 6 * 36e5) loadTop();
   if (!dc.fy || dc.fy.v !== 3 || dc.fy.day !== today() || dc.fy.sig !== tasteSig()) loadForYou();
-  if (!cols || cols.day !== today() || cols.v !== 4) loadCols(type);
+  if (!cols || cols.day !== today() || cols.v !== 8) loadCols(type);
 }
 // В подборках только новое: что уже в «Посмотрю» или «Просмотрено» — не показываем
 const fresh = l => visible(l).filter(x => !db.items[uid(x.type, x.id)]);
@@ -786,7 +809,71 @@ function openCollection(i) {
   const type = seg.lists, def = COLLECTIONS[type][i], c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
   if (!c) return;
   const L = pushLayer('page', true), el = L.el; L.drop = true;
-  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${fresh(c.items).map(tile).join('')}</div></div>`;
+  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${fresh(c.items).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1">Показать ещё</button>' : ''}</div>`;
+  if (!def.fixed) return;
+  // Стриминги: весь каталог — догружаем страницы TMDB по кнопке
+  let page = 1;
+  L.onButton = async t => {
+    if (!t.dataset.more || t.disabled) return;
+    if (!navigator.onLine || !db.key) return toast('Нужен интернет');
+    t.disabled = true; t.textContent = 'Загружаю…';
+    try {
+      const d = await api(def.path, { ...def.p, page: ++page });
+      const have = new Set([...el.querySelectorAll('.tile[data-open]')].map(b => b.dataset.open));
+      const add = fresh(listOf({ results: (d.results || []).filter(x => !noise(x)) }, type)).filter(x => x.date && x.date <= today() && !have.has(uid(x.type, x.id)));
+      el.querySelector('.grid').insertAdjacentHTML('beforeend', add.map(tile).join(''));
+      const n = el.querySelectorAll('.grid .tile').length, h = el.querySelector('.pagehead .s'); h.textContent = h.textContent.replace(/\d+$/, n);
+      if (page >= (d.total_pages || 0)) t.remove(); else { t.disabled = false; t.textContent = 'Показать ещё'; }
+    } catch (e) { page--; t.disabled = false; t.textContent = 'Показать ещё'; toast(errText(e)); }
+  };
+}
+// Ток-шоу, новости, реалити и детские передачи — шум в стримингах
+const noise = x => (x.genre_ids || []).some(g => [10767, 10763, 10764, 10762].includes(g));
+
+// ---------- Премия Оскар ----------
+// Данные — из Wikidata (собираются скриптом tools/oscars_build.py в oscars.json): years: год церемонии → id TMDB → выигранные номинации (пусто — номинант); cats: названия номинаций
+let oscarYear = null, oscarData = null;
+// Загружаем один раз; индекс: id фильма → { год церемонии, номинации-победы }
+const oscarLoad = () => oscarData || (oscarData = fetch('oscars.json').then(r => r.json()).then(d => { d.byId = {}; for (const [y, m] of Object.entries(d.years)) for (const [id, cs] of Object.entries(m)) if (cs.length) d.byId[id] = { y, cs }; return d; }).catch(() => { oscarData = null; throw new Error('osc'); }));
+const oscName = t => /^Лучш/.test(t) ? 'За ' + t[0].toLowerCase() + t.slice(1) : t;
+function oscarBlock(it) {
+  const d = oscarData && oscarData.byId && it.type === 'movie' && oscarData.byId[it.id];
+  if (!d) return '';
+  return `<div class="sec">Премия Оскар · ${d.y} · ${d.cs.length} ${plural(d.cs.length, 'победа', 'победы', 'побед')}</div><ul class="oscl">${d.cs.map(c => `<li>${OSC}<span>${esc(oscName(oscarData.cats[c] || ''))}</span></li>`).join('')}</ul>`;
+}
+oscarLoad().then(d => { oscarData = d; }).catch(() => {});
+const OSC = '<svg viewBox="0 0 7 16"><circle cx="3.5" cy="2" r="1.8"/><path d="M2 4.3h3l-.4 7H2.4z"/><rect x="0.6" y="12" width="5.8" height="4" rx=".6"/></svg>';
+const oscTile = (x, n) => n ? tile(x).replace('<div class="poster">', `<div class="poster"><span class="osc" title="${n} ${plural(n, '«Оскар»', '«Оскара»', '«Оскаров»')}">${OSC.repeat(n)}</span>`) : tile(x);
+async function openOscar() {
+  const L = pushLayer('page', true), el = L.el;
+  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">🏆</div><h2>Премия Оскар</h2><div class="s">Загружаю…</div></div><div id="osc"></div></div>`;
+  let data;
+  try { data = (await oscarLoad()).years; } catch { el.querySelector('.pagehead .s').textContent = 'Не удалось загрузить список премий'; return; }
+  const years = Object.keys(data).filter(y => Object.values(data[y]).some(n => n.length)).sort((a, b) => b - a);
+  if (!oscarYear || !data[oscarYear]) oscarYear = years[0];
+  const show = async () => {
+    const y = oscarYear, ids = Object.entries(data[y]).map(([id, cs]) => [id, cs.length]).sort((a, b) => b[1] - a[1]);
+    el.querySelector('.pagehead .s').textContent = `Церемония ${y} · фильмы ${y - 1} года`;
+    const box = el.querySelector('#osc');
+    const bar = `<div class="years">${years.map(v => `<button data-oy="${v}" class="${v === y ? 'on' : ''}">${v}</button>`).join('')}</div>`;
+    // Карточки года храним, чтобы работало без интернета
+    db.disc = db.disc || {}; const cache = db.disc.osc = db.disc.osc || {};
+    if (!cache[y]) {
+      if (!navigator.onLine || !db.key) { box.innerHTML = bar + `<div class="empty">Этот год откроется, когда будет интернет.</div>`; return; }
+      box.innerHTML = bar + `<div class="empty">Загружаю…</div>`;
+      const got = await Promise.all(ids.map(([id]) => api('/movie/' + id).then(d => fromApi(d, 'movie')).catch(() => null)));
+      cache[y] = got.filter(Boolean); save();
+      if (oscarYear !== y) return;
+    }
+    cache[y].forEach(x => pool[uid(x.type, x.id)] = pool[uid(x.type, x.id)] || x);
+    const win = Object.fromEntries(ids), list = visible(cache[y]).sort((a, b) => (win[b.id] || 0) - (win[a.id] || 0));
+    const w = list.filter(x => win[x.id]), nom = list.filter(x => !win[x.id]);
+    box.innerHTML = bar + (w.length ? `<div class="sec">Победители</div><div class="grid">${w.map(x => oscTile(x, win[x.id])).join('')}</div>` : '')
+      + (nom.length ? `<div class="sec">Номинанты</div><div class="grid">${nom.map(x => tile(x)).join('')}</div>` : '');
+    const on = box.querySelector('.years .on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  };
+  L.onButton = t => { if (t.dataset.oy) { oscarYear = t.dataset.oy; show(); } };
+  show();
 }
 
 // ---------- Стопка окон ----------
@@ -914,6 +1001,7 @@ function renderSheet() {
     }).join('');
   }
   if (it.overview) h += `<div class="sec">Описание</div><p class="ov">${esc(it.overview)}</p>`;
+  h += oscarBlock(it);
   if (it.genres && it.genres.length) h += `<div class="sec">Жанры</div><div class="chips">${it.genres.map(g => `<span>${esc(g[0].toUpperCase() + g.slice(1))}</span>`).join('')}</div>`;
   if (it.cast && it.cast.length) h += `<div class="sec">Актёры</div>${people(it.cast)}`;
   if (it.crew && it.crew.length) h += `<div class="sec">Съёмочная группа</div>${people(it.crew)}`;
@@ -1047,6 +1135,7 @@ $('#main').addEventListener('click', e => {
   const ab = e.target.closest('[data-air]'); if (ab) { airF = airF === ab.dataset.air ? 'all' : ab.dataset.air; try { localStorage.setItem('kino-air', airF); } catch {} const y = scrollY; render(); scrollTo(0, y); return; }
   const sg = e.target.closest('[data-seg]'); if (sg) { seg[tab] = sg.dataset.seg; const y = scrollY; render(); scrollTo(0, y); return; }
   const cl = e.target.closest('[data-col]'); if (cl) return openCollection(+cl.dataset.col);
+  if (e.target.closest('[data-oscar]')) return openOscar();
   const nx = e.target.closest('[data-next]');
   if (nx) { const it = db.items['tv-' + nx.dataset.next], n = nextEp(it); if (n) { toggleEp(it, n.s, n.e); toast(`Сезон ${n.s}, серия ${n.e} — просмотрена`); render(); } return; }
   const o = e.target.closest('[data-open]'); if (o) openItem(o.dataset.open);
@@ -1056,6 +1145,7 @@ function layerClick(e, L) {
   if (t.classList.contains('close')) return popLayer(L);
   if (t.dataset.open) return openItem(t.dataset.open);
   if (t.dataset.pname !== undefined) return openPerson(+t.dataset.pid || 0, t.dataset.pname);
+  if (L.onButton) return L.onButton(t);
   if (L.kind !== 'item' && L.kind !== 'settings') return;
   if (t.id === 'savekey') { db.key = $('#key').value.trim(); db.showsChecked = 0; db.disc = null; save(); results = null; toast('Ключ сохранён'); syncAll(); return; }
   if (t.id === 'exp') return exportData();

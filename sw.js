@@ -1,7 +1,7 @@
 // Офлайн-кэш приложения. При каждом изменении файлов меняйте версию CACHE.
-const CACHE = 'kino-v46';
+const CACHE = 'kino-v50';
 const POSTERS = 'kino-posters';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
+const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png', './oscars.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
