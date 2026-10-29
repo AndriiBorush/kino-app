@@ -845,7 +845,7 @@ oscarLoad().then(d => { oscarData = d; }).catch(() => {});
 const OSC = '<svg viewBox="0 0 7 16"><circle cx="3.5" cy="2" r="1.8"/><path d="M2 4.3h3l-.4 7H2.4z"/><rect x="0.6" y="12" width="5.8" height="4" rx=".6"/></svg>';
 const oscTile = (x, n) => n ? tile(x).replace('<div class="poster">', `<div class="poster"><span class="osc" title="${n} ${plural(n, '«Оскар»', '«Оскара»', '«Оскаров»')}">${OSC.repeat(n)}</span>`) : tile(x);
 async function openOscar() {
-  const L = pushLayer('page', true), el = L.el;
+  const L = pushLayer('page', true), el = L.el; L.drop = true; // отмеченное сразу пропадает, как в других подборках
   el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">🏆</div><h2>Премия Оскар</h2><div class="s">Загружаю…</div></div><div id="osc"></div></div>`;
   let data;
   try { data = (await oscarLoad()).years; } catch { el.querySelector('.pagehead .s').textContent = 'Не удалось загрузить список премий'; return; }
@@ -866,7 +866,7 @@ async function openOscar() {
       if (oscarYear !== y) return;
     }
     cache[y].forEach(x => pool[uid(x.type, x.id)] = pool[uid(x.type, x.id)] || x);
-    const win = Object.fromEntries(ids), list = visible(cache[y]).sort((a, b) => (win[b.id] || 0) - (win[a.id] || 0));
+    const win = Object.fromEntries(ids), list = fresh(cache[y]).sort((a, b) => (win[b.id] || 0) - (win[a.id] || 0));
     const w = list.filter(x => win[x.id]), nom = list.filter(x => !win[x.id]);
     box.innerHTML = bar + (w.length ? `<div class="sec">Победители</div><div class="grid">${w.map(x => oscTile(x, win[x.id])).join('')}</div>` : '')
       + (nom.length ? `<div class="sec">Номинанты</div><div class="grid">${nom.map(x => tile(x)).join('')}</div>` : '');
