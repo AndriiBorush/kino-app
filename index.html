@@ -1074,7 +1074,10 @@ function layerClick(e, L) {
   if (t.dataset.ep) { const [s, ep] = t.dataset.ep.split(':').map(Number); toggleEp(cur, s, ep); renderSheet(); return; }
   if (t.dataset.all) {
     const s = +t.dataset.all, ac = airedCount(cur, cur.seasons.find(x => x.n === s)); cur.seen = cur.seen || {};
-    cur.seen[s] = (cur.seen[s] || []).length >= ac ? [] : Array.from({ length: ac }, (_, i) => i + 1);
+    const on = (cur.seen[s] || []).length < ac;
+    cur.seen[s] = on ? Array.from({ length: ac }, (_, i) => i + 1) : [];
+    // Отметил весь сезон — значит, видел и все прошлые (кроме спецвыпусков, сезон 0); снятие отметки прошлые не трогает
+    if (on && s > 1) airedSeasons(cur).filter(x => x.n >= 1 && x.n < s).forEach(x => cur.seen[x.n] = Array.from({ length: airedCount(cur, x) }, (_, i) => i + 1));
     if (!cur.status) cur.status = 'want';
     afterEpisodes(cur); keep(cur); renderSheet();
   }
