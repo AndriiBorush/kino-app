@@ -328,9 +328,10 @@ function fromApi(x, type) {
   pool[uid(type, it.id)] = pool[uid(type, it.id)] || it;
   return it;
 }
-const DV = 12; // версия набора данных карточки: старые записи догружаются заново
+const DV = 13; // версия набора данных карточки: старые записи догружаются заново
 const JOBS = { Director: 'Режиссёр', Screenplay: 'Сценарий', Writer: 'Сценарий', Novel: 'Автор книги', 'Original Music Composer': 'Композитор', 'Director of Photography': 'Оператор', Producer: 'Продюсер' };
 // Жанры, актёры, съёмочная группа, сезоны — одним запросом
+const BRANDS = /^(Netflix|Amazon|Apple|HBO|Max\b|Hulu|Disney|Paramount|Peacock|A24|Warner Bros|Universal Pictures|Columbia Pictures|Sony Pictures|Lionsgate|Neon|Searchlight|20th Century|Focus Features|Legendary|Lucasfilm|Pixar|Marvel Studios|DreamWorks|Blumhouse)/i;
 async function loadDetails(it) {
   // У сериалов aggregate_credits — состав за все сезоны, а не только за последний
   const cr = it.type === 'tv' ? 'aggregate_credits' : 'credits';
@@ -354,7 +355,11 @@ async function loadDetails(it) {
   it.genres = (d.genres || []).map(g => g.name); it.g = (d.genres || []).map(g => g.id); it.lang = d.original_language || it.lang || '';
   if (d.overview) it.overview = d.overview;
   // Кто снял и где: студии (до двух) и страны — по-русски
-  it.studios = (d.production_companies || []).slice(0, 6).map(c => ({ n: c.name, l: c.logo_path || '' }));
+  // Главное — чей это проект: у сериала канал (Prime Video, Netflix…), у фильма крупный бренд, если он есть среди студий
+  const st = (d.production_companies || []).map(c => ({ n: c.name, l: c.logo_path || '' }));
+  const net = (d.networks || []).slice(0, 2).map(c => ({ n: c.name, l: c.logo_path || '', b: 1 }));
+  const brand = st.filter(c => BRANDS.test(c.n)).map(c => ({ ...c, b: 1 }));
+  it.studios = [...net, ...brand, ...st.filter(c => !BRANDS.test(c.n))].slice(0, 6);
   const cn = (d.production_countries || []).map(c => c.iso_3166_1).concat(d.origin_country || []);
   it.countries = [...new Set(cn)].slice(0, 3).map(c => ({ US: 'США', GB: 'Великобритания', KR: 'Южная Корея', AE: 'ОАЭ' })[c] || (() => { try { return new Intl.DisplayNames(['ru'], { type: 'region' }).of(c); } catch { return c; } })());
   if (d.poster_path) it.poster = d.poster_path;
@@ -729,10 +734,10 @@ const GENRES = [
 const COUNTRIES = [['ja', '🇯🇵', 'Япония'], ['ko', '🇰🇷', 'Корея'], ['zh', '🇨🇳', 'Китай'], ['cn', '🇭🇰', 'Гонконг'], ['hi', '🇮🇳', 'Индия'], ['th', '🇹🇭', 'Таиланд'], ['tr', '🇹🇷', 'Турция'], ['ru', '🇷🇺', 'Россия'], ['uk', '🇺🇦', 'Украина'], ['pl', '🇵🇱', 'Польша'], ['fr', '🇫🇷', 'Франция'], ['de', '🇩🇪', 'Германия'], ['it', '🇮🇹', 'Италия'], ['es', '🇪🇸', 'Испания и Латинская Америка'], ['pt', '🇧🇷', 'Бразилия и Португалия'], ['sv', '🇸🇪', 'Швеция'], ['da', '🇩🇰', 'Дания'], ['no', '🇳🇴', 'Норвегия'], ['fi', '🇫🇮', 'Финляндия'], ['nl', '🇳🇱', 'Нидерланды'], ['ar', '🇸🇦', 'Арабские страны'], ['fa', '🇮🇷', 'Иран'], ['he', '🇮🇱', 'Израиль'], ['id', '🇮🇩', 'Индонезия'], ['tl', '🇵🇭', 'Филиппины']];
 const isAnime = x => (x.g || []).includes(16) && x.lang === 'ja';
 // Скрыто ли из поиска, подборок и фильмографий: спрятано вручную или жанр выключен
-// Студии в карточке: по умолчанию одна главная — первая со значком, иначе первая; ползунок в настройках — все
+// Студии в карточке: по умолчанию одна главная — канал или крупный бренд, иначе первая со значком; ползунок в настройках — все
 function studiosShown(it) {
   const l = (it.studios || []).map(st => typeof st === 'string' ? { n: st } : st);
-  return db.allStudios ? l : l.length ? [l.find(st => st.l) || l[0]] : [];
+  return db.allStudios ? l : l.length ? [l.find(st => st.b) || l.find(st => st.l) || l[0]] : []; // канал/бренд, иначе первая со значком
 }
 const ctrySum = () => { const l = COUNTRIES.filter(c => (db.offLangs || []).includes(c[0])); return l.length ? 'Скрыто: ' + l.map(c => c[1] + ' ' + c[2]).join(', ') : 'Ничего не скрыто — нажми, чтобы выбрать'; };
 function hiddenX(x) {
@@ -1185,6 +1190,7 @@ function pushLayer(kind, side) {
   document.body.appendChild(el);
   const L = { el, kind, openSeason: null }; stack.push(L);
   swipeClose(el, () => popLayer(L));
+  if (side) swipeSide(el, () => popLayer(L));
   el.addEventListener('click', e => layerClick(e, L));
   el.getBoundingClientRect(); el.classList.add('open'); // reflow — чтобы окно выехало плавно
   return L;
@@ -1548,6 +1554,22 @@ function swipeClose(el, close) {
   el.addEventListener('touchend', () => {
     if (y0 === null) return; y0 = null; el.classList.remove('dragging');
     if (dy > 110) { el.style.transform = 'translateY(100%)'; setTimeout(() => { close(); el.style.transform = ''; }, 250); } else el.style.transform = '';
+  });
+}
+// ---------- Свайп справа налево закрывает подборку, «Похожие», актёра ----------
+function swipeSide(el, close) {
+  let x0 = null, y0 = 0, dx = 0, horiz = null;
+  el.addEventListener('touchstart', e => { x0 = e.target.closest('.scroller, .folders, [data-swp]') ? null : e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horiz = null; }, { passive: true });
+  el.addEventListener('touchmove', e => {
+    if (x0 === null) return;
+    dx = e.touches[0].clientX - x0; const dy = e.touches[0].clientY - y0;
+    if (horiz === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) horiz = Math.abs(dx) > Math.abs(dy) * 1.5 && dx < 0;
+    if (!horiz) return;
+    e.preventDefault(); el.classList.add('dragging'); el.style.transform = `translateX(${Math.min(dx, 0)}px)`;
+  }, { passive: false });
+  el.addEventListener('touchend', () => {
+    if (x0 === null || !horiz) { x0 = null; return; } x0 = null; el.classList.remove('dragging');
+    if (dx < -innerWidth * 0.3) { el.style.transform = 'translateX(-100%)'; setTimeout(close, 250); } else el.style.transform = '';
   });
 }
 addEventListener('online', () => { syncAll(); if (tab === 'search') doSearch(); if (tab === 'lists') refreshMain(); });
