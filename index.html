@@ -733,7 +733,7 @@ async function loadCols(type) {
   const pickIdx = COLLECTIONS[type].map((_, i) => i).concat((db.myCols || []).filter(c => c.type === type).map(c => c.id));
   const lists = await Promise.all(pickIdx.map(i => loadOne(colDef(type, i), type)));
   // В коллекциях только уже вышедшее
-  db.disc = db.disc || {}; db.disc[type] = { v: 8, day: today(), cols: pickIdx.map((i, k) => ({ i, items: lists[k] })).filter(c => c.items.length) }; save();
+  db.disc = db.disc || {}; db.disc[type] = { v: 9, day: today(), cols: pickIdx.map((i, k) => ({ i, items: lists[k] })).filter(c => c.items.length) }; save();
   discLoading[type] = false;
   if (tab === 'lists' && !stack.length) refreshMain();
 }
@@ -742,7 +742,12 @@ function loadOne(c, type) {
   const nol = c.p.without_original_language;
   // Ток-шоу, новости, реалити и детское в стримингах — шум
   const ok = x => (!nol || x.original_language !== nol) && !(c.fixed && noise(x));
-  return api(c.path, c.p).then(d => listOf({ results: (d.results || []).filter(ok) }, type).filter(x => x.date && x.date <= today())).catch(() => []);
+  const get = p => api(c.path, p).then(d => listOf({ results: (d.results || []).filter(ok) }, type).filter(x => x.date && x.date <= today())).catch(() => []);
+  // Обычные коллекции по жанрам/странам — ещё и лучшее за последние 10 лет, чтобы было что показать первым
+  const dk = type === 'movie' ? 'primary_release_date' : 'first_air_date';
+  if (c.fixed || !c.path.startsWith('/discover/') || Object.keys(c.p).some(k => k.startsWith(dk) || k.startsWith('first_air') || k.startsWith('primary_release'))) return get(c.p);
+  return Promise.all([get({ ...c.p, [dk + '.gte']: (yearNow - 10) + '-01-01', 'vote_count.gte': String(Math.round((+c.p['vote_count.gte'] || 300) / 3)) }), get(c.p)])
+    .then(([a, b]) => { const seen = new Set(a.map(x => x.id)); return a.concat(b.filter(x => !seen.has(x.id))); });
 }
 // ---------- «Для тебя»: по твоим спискам ----------
 // Подпись набора: меняется, когда что-то добавлено или убрано, — тогда пересобираем
@@ -828,7 +833,7 @@ function renderShelves() {
     : `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю…' : 'Подборки появятся, когда будет интернет.'}</div>`;
   const fy = dc.fy;
   if (fy) [['movie', 'Фильмы для тебя'], ['tv', 'Сериалы для тебя']].forEach(([t, title]) => {
-    const l = fyOrder(t, visible(fy[t]).filter(x => !db.items[uid(x.type, x.id)]));
+    const l = newerFirst(fyOrder(t, visible(fy[t]).filter(x => !db.items[uid(x.type, x.id)])));
     l.forEach(x => pool[uid(x.type, x.id)] = pool[uid(x.type, x.id)] || x);
     if (l.length) h += `<div class="shelf"><h3>${title}</h3><p class="sub">По тому, что ты смотрел и собираешься</p><div class="scroller" data-fy="${t}">${l.map(tile).join('')}</div></div>`;
   });
@@ -853,7 +858,7 @@ function renderShelves() {
   m.querySelectorAll('[data-fy]').forEach(sc => sc.addEventListener('scroll', () => { if (sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 500) moreFy(sc.dataset.fy, sc); }, { passive: true }));
   if (!top || top.v !== 4 || Date.now() - top.at > 6 * 36e5) loadTop();
   if (!dc.fy || dc.fy.v !== 3 || dc.fy.day !== today() || dc.fy.sig !== tasteSig()) loadForYou();
-  if (!cols || cols.day !== today() || cols.v !== 8) loadCols(type);
+  if (!cols || cols.day !== today() || cols.v !== 9) loadCols(type);
 }
 // ---------- Свои коллекции ----------
 // Коллекция: встроенная — номер в COLLECTIONS, своя — id 'my…' в db.myCols. Избранное — db.favCols: ['movie:3', 'tv:my17…']
@@ -919,12 +924,17 @@ async function createCollection() {
   if (!def) return toast('Ничего не нашлось. Попробуй другими словами');
   (db.myCols = db.myCols || []).push(def);
   const t = def.type; db.disc = db.disc || {};
-  const dc = db.disc[t] = db.disc[t] || { v: 8, day: '', cols: [] }; dc.cols.push({ i: def.id, items });
+  const dc = db.disc[t] = db.disc[t] || { v: 9, day: '', cols: [] }; dc.cols.push({ i: def.id, items });
   save();
   // Новая — сразу первой в этом заходе; дальше меняется, как остальные. Если она другого типа — переключаемся на него
   if (colMix[t]) colMix[t].unshift(def.id);
   if (seg.lists !== t) seg.lists = t;
   refreshMain(); openCollection(def.id);
+}
+// Сначала новое, но не строго по годам: три группы — последние 3 года, 4–10 лет, старше; внутри группы порядок не меняется
+function newerFirst(l) {
+  const y = new Date().getFullYear(), grp = x => { const a = y - (+x.year || 0); return a <= 3 ? 0 : a <= 10 ? 1 : 2; };
+  return l.map((x, i) => ({ x, i, g: grp(x) })).sort((a, b) => a.g - b.g || a.i - b.i).map(o => o.x);
 }
 // В подборках только новое: что уже в «Посмотрю» или «Просмотрено» — не показываем
 const fresh = l => visible(l).filter(x => !db.items[uid(x.type, x.id)]);
@@ -932,7 +942,7 @@ function openCollection(i) {
   const type = seg.lists, def = colDef(type, i), c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
   if (!c) return;
   const L = pushLayer('page', true), el = L.el; L.drop = true;
-  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${fresh(c.items).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1">Показать ещё</button>' : `<button class="more" data-fav="1">${isFav(type, i) ? 'Убрать из избранных подборок' : '★ В избранные подборки'}</button>${def.own ? '<button class="more del" data-delcol="1">Удалить коллекцию</button>' : ''}`}</div>`;
+  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${newerFirst(fresh(c.items)).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1">Показать ещё</button>' : `<button class="more" data-fav="1">${isFav(type, i) ? 'Убрать из избранных подборок' : '★ В избранные подборки'}</button>${def.own ? '<button class="more del" data-delcol="1">Удалить коллекцию</button>' : ''}`}</div>`;
   if (!def.fixed) {
     L.onButton = async t => {
       if (t.dataset.fav) {
@@ -1077,7 +1087,7 @@ async function openSimilar(it) {
     const [rec, sim] = await Promise.all(['recommendations', 'similar'].map(k => api('/' + it.type + '/' + it.id + '/' + k).catch(() => ({ results: [] }))));
     const seen = new Set([uid(it.type, it.id)]), list = [];
     for (const x of [...rec.results, ...sim.results]) { const y = fromApi(x, it.type), k = uid(y.type, y.id); if (!seen.has(k)) { seen.add(k); list.push(y); } }
-    const vis = fresh(list).slice(0, 30);
+    const vis = newerFirst(fresh(list).slice(0, 30));
     el.querySelector('.body').innerHTML = head + (vis.length ? `<div class="grid">${vis.map(tile).join('')}</div>` : `<div class="empty">Похожих не нашлось.</div>`);
   } catch (e) { el.querySelector('.body').innerHTML = head + `<div class="empty">${errText(e)}</div>`; }
 }
