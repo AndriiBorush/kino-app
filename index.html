@@ -1268,8 +1268,10 @@ async function openSettings() {
   <div class="card"><p>Спрятанные фильмы и сериалы${hid.length ? ' · ' + hid.length : ''}</p>${hid.length ? hid.map(x => `<div class="hrow"><span>${esc(x.title)}<small>${x.year || ''}${x.type === 'tv' ? ' · сериал' : ''}</small></span><button data-unhide="${uid(x.type, x.id)}">Вернуть</button></div>`).join('') : '<p style="margin:0">Пока ничего. Спрятать можно кнопкой внизу карточки.</p>'}</div>
   <div class="card"><p>В списках ${n}. ${est}</p><p>Все данные хранятся только на этом телефоне. Если удалить иконку приложения, они пропадут — поэтому иногда сохраняй копию (например, в iCloud Drive).</p>
   <button class="wide" id="exp">Сохранить копию</button><button class="wide" id="imp">Восстановить из копии</button></div>
-  <p style="color:var(--muted);font-size:12px;text-align:center;line-height:1.5">Данные о фильмах: TMDB. Это приложение использует TMDB API, но не одобрено и не сертифицировано TMDB.</p></div>`;
+  <p style="color:var(--muted);font-size:12px;text-align:center;line-height:1.5"><span id="ver"></span>Данные о фильмах: TMDB. Это приложение использует TMDB API, но не одобрено и не сертифицировано TMDB.</p></div>`;
   L.el.scrollTop = y;
+  // Какая версия сейчас на телефоне — по названию кэша (чтобы проверить, дошло ли обновление)
+  caches.keys().then(k => { const v = k.find(x => /^kino-v\d+$/.test(x)), el = L.el.querySelector('#ver'); if (v && el) el.textContent = 'Версия ' + v.slice(6) + '. '; }).catch(() => {});
 }
 async function exportData() {
   const data = JSON.stringify({ app: 'kino', saved: new Date().toISOString(), items: db.items, folders: db.folders || [], hiddenItems: db.hiddenItems || {}, offGenres: db.offGenres || [] }, null, 1);

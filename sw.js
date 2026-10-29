@@ -1,10 +1,12 @@
 // Офлайн-кэш приложения. При каждом изменении файлов меняйте версию CACHE.
-const CACHE = 'kino-v60';
+const CACHE = 'kino-v61';
 const POSTERS = 'kino-posters';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png', './oscars.json'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache: 'reload' — берём файлы прямо с сайта, мимо памяти браузера (GitHub разрешает держать их 10 минут),
+  // иначе новая версия может сохранить у себя старый index.html
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 // На этом же адресе живут «Финансы» и «Конвертер» — удаляем только свои старые версии, чужие кэши не трогаем
 self.addEventListener('activate', e => {
