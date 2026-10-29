@@ -1,5 +1,5 @@
 // Офлайн-кэш приложения. При каждом изменении файлов меняйте версию CACHE.
-const CACHE = 'kino-v45';
+const CACHE = 'kino-v46';
 const POSTERS = 'kino-posters';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 

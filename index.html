@@ -785,7 +785,7 @@ const fresh = l => visible(l).filter(x => !db.items[uid(x.type, x.id)]);
 function openCollection(i) {
   const type = seg.lists, def = COLLECTIONS[type][i], c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
   if (!c) return;
-  const el = pushLayer('page', true).el;
+  const L = pushLayer('page', true), el = L.el; L.drop = true;
   el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${fresh(c.items).map(tile).join('')}</div></div>`;
 }
 
@@ -809,6 +809,11 @@ function popLayer(L = topLayer()) {
   const t = topLayer();
   cur = t && t.kind === 'item' ? t.it : null; openSeason = t ? t.openSeason : null;
   if (t && t.kind === 'item') renderSheet(); // свежие отметки, прокрутка сохраняется
+  // Коллекция и «Похожие»: отмеченное в карточке сразу убираем из списка
+  if (t && t.drop) {
+    t.el.querySelectorAll('.grid .tile[data-open]').forEach(b => { if (db.items[b.dataset.open]) b.remove(); });
+    const c = t.el.querySelector('.pagehead .s'); if (c && / · \d+$/.test(c.textContent)) c.textContent = c.textContent.replace(/\d+$/, t.el.querySelectorAll('.grid .tile').length);
+  }
   if (!stack.length) refreshMain();
 }
 const closeSheet = () => popLayer();
@@ -836,7 +841,7 @@ function people(list) {
 }
 // ---------- Похожие ----------
 async function openSimilar(it) {
-  const el = pushLayer('person', true).el, word = it.type === 'movie' ? 'фильмы' : 'сериалы';
+  const L = pushLayer('person', true), el = L.el, word = it.type === 'movie' ? 'фильмы' : 'сериалы'; L.drop = true;
   const head = `<div class="pagehead"><h2>Похожие ${word}</h2><div class="s">на «${esc(it.title)}»</div></div>`;
   el.innerHTML = closeBtn('px') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)">${head}<div class="empty">${navigator.onLine && db.key ? 'Загружаю…' : 'Похожие откроются, когда будет интернет.'}</div></div>`;
   if (!navigator.onLine || !db.key) return;
@@ -845,7 +850,7 @@ async function openSimilar(it) {
     const [rec, sim] = await Promise.all(['recommendations', 'similar'].map(k => api('/' + it.type + '/' + it.id + '/' + k).catch(() => ({ results: [] }))));
     const seen = new Set([uid(it.type, it.id)]), list = [];
     for (const x of [...rec.results, ...sim.results]) { const y = fromApi(x, it.type), k = uid(y.type, y.id); if (!seen.has(k)) { seen.add(k); list.push(y); } }
-    const vis = visible(list).slice(0, 30);
+    const vis = fresh(list).slice(0, 30);
     el.querySelector('.body').innerHTML = head + (vis.length ? `<div class="grid">${vis.map(tile).join('')}</div>` : `<div class="empty">Похожих не нашлось.</div>`);
   } catch (e) { el.querySelector('.body').innerHTML = head + `<div class="empty">${errText(e)}</div>`; }
 }
