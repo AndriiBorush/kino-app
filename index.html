@@ -123,6 +123,18 @@ button.person{display:block}
 .btns button{flex:1;height:48px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:15px}
 .btns button.on{background:var(--gold);color:#16120c;border-color:var(--gold)}
 .ov{color:#c3c8d1;line-height:1.55;font-size:15px;margin:0}
+.made{margin:0;color:var(--muted);font-size:15px;line-height:1.45;display:flex;flex-wrap:wrap;gap:4px 14px}
+.made{align-items:center}
+.made b{color:var(--text);font-weight:500}
+.made .logo{display:inline-flex;align-items:center;height:30px;padding:4px 10px;border-radius:8px;background:#fff}
+.made .logo img{max-height:22px;max-width:110px;object-fit:contain}
+.swrow{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;padding:0;text-align:left;color:var(--text);font-size:15px}
+.swrow span{flex:1}
+.swrow small{display:block;color:var(--muted);font-size:13px;margin-top:3px}
+.sw{flex:none;position:relative;width:51px;height:31px;border-radius:16px;background:var(--line);transition:background .2s}
+.sw::after{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.sw.on{background:#34c759}
+.sw.on::after{transform:translateX(20px)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chips span{padding:7px 12px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
 .people{display:flex;gap:14px;overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none}
@@ -295,7 +307,7 @@ function fromApi(x, type) {
   pool[uid(type, it.id)] = pool[uid(type, it.id)] || it;
   return it;
 }
-const DV = 8; // версия набора данных карточки: старые записи догружаются заново
+const DV = 12; // версия набора данных карточки: старые записи догружаются заново
 const JOBS = { Director: 'Режиссёр', Screenplay: 'Сценарий', Writer: 'Сценарий', Novel: 'Автор книги', 'Original Music Composer': 'Композитор', 'Director of Photography': 'Оператор', Producer: 'Продюсер' };
 // Жанры, актёры, съёмочная группа, сезоны — одним запросом
 async function loadDetails(it) {
@@ -320,6 +332,10 @@ async function loadDetails(it) {
   }
   it.genres = (d.genres || []).map(g => g.name); it.g = (d.genres || []).map(g => g.id); it.lang = d.original_language || it.lang || '';
   if (d.overview) it.overview = d.overview;
+  // Кто снял и где: студии (до двух) и страны — по-русски
+  it.studios = (d.production_companies || []).slice(0, 6).map(c => ({ n: c.name, l: c.logo_path || '' }));
+  const cn = (d.production_countries || []).map(c => c.iso_3166_1).concat(d.origin_country || []);
+  it.countries = [...new Set(cn)].slice(0, 3).map(c => ({ US: 'США', GB: 'Великобритания', KR: 'Южная Корея', AE: 'ОАЭ' })[c] || (() => { try { return new Intl.DisplayNames(['ru'], { type: 'region' }).of(c); } catch { return c; } })());
   if (d.poster_path) it.poster = d.poster_path;
   it.runtime = d.runtime || (d.episode_run_time || [])[0] || 0;
   it.cast = (credits.cast || []).slice(0, 15).map(p => ({ id: p.id, name: p.name, role: p.character || ((p.roles || [])[0] || {}).character || '', photo: p.profile_path || '' }));
@@ -647,6 +663,11 @@ const GENRES = [
 const COUNTRIES = [['ja', '🇯🇵', 'Япония'], ['ko', '🇰🇷', 'Корея'], ['zh', '🇨🇳', 'Китай'], ['cn', '🇭🇰', 'Гонконг'], ['hi', '🇮🇳', 'Индия'], ['th', '🇹🇭', 'Таиланд'], ['tr', '🇹🇷', 'Турция'], ['ru', '🇷🇺', 'Россия'], ['uk', '🇺🇦', 'Украина'], ['pl', '🇵🇱', 'Польша'], ['fr', '🇫🇷', 'Франция'], ['de', '🇩🇪', 'Германия'], ['it', '🇮🇹', 'Италия'], ['es', '🇪🇸', 'Испания и Латинская Америка'], ['pt', '🇧🇷', 'Бразилия и Португалия'], ['sv', '🇸🇪', 'Швеция'], ['da', '🇩🇰', 'Дания'], ['no', '🇳🇴', 'Норвегия'], ['fi', '🇫🇮', 'Финляндия'], ['nl', '🇳🇱', 'Нидерланды'], ['ar', '🇸🇦', 'Арабские страны'], ['fa', '🇮🇷', 'Иран'], ['he', '🇮🇱', 'Израиль'], ['id', '🇮🇩', 'Индонезия'], ['tl', '🇵🇭', 'Филиппины']];
 const isAnime = x => (x.g || []).includes(16) && x.lang === 'ja';
 // Скрыто ли из поиска, подборок и фильмографий: спрятано вручную или жанр выключен
+// Студии в карточке: по умолчанию одна главная — первая со значком, иначе первая; ползунок в настройках — все
+function studiosShown(it) {
+  const l = (it.studios || []).map(st => typeof st === 'string' ? { n: st } : st);
+  return db.allStudios ? l : l.length ? [l.find(st => st.l) || l[0]] : [];
+}
 const ctrySum = () => { const l = COUNTRIES.filter(c => (db.offLangs || []).includes(c[0])); return l.length ? 'Скрыто: ' + l.map(c => c[1] + ' ' + c[2]).join(', ') : 'Ничего не скрыто — нажми, чтобы выбрать'; };
 function hiddenX(x) {
   if ((db.hiddenItems || {})[uid(x.type, x.id)]) return true;
@@ -1225,6 +1246,7 @@ function renderSheet() {
     }).join('');
   }
   if (it.overview) h += `<div class="sec">Описание</div><p class="ov">${esc(it.overview)}</p>`;
+  if ((it.studios || []).length || (it.countries || []).length) h += `<div class="sec">${(it.studios || []).length ? (studiosShown(it).length > 1 ? 'Студии и страна' : 'Студия и страна') : 'Страна'}</div><p class="made">${studiosShown(it).map(st => st.l ? `<span class="logo"><img src="${IMG}w185${st.l}" alt="${esc(st.n)}" onerror="this.parentNode.outerHTML='<b>'+this.alt+'</b>'"></span>` : `<b>${esc(st.n)}</b>`).join('')}${(it.countries || []).length ? `<span>${esc(it.countries.join(', '))}</span>` : ''}</p>`;
   h += oscarBlock(it);
   if (it.genres && it.genres.length) h += `<div class="sec">Жанры</div><div class="chips">${it.genres.map(g => `<span>${esc(g[0].toUpperCase() + g.slice(1))}</span>`).join('')}</div>`;
   if (it.cast && it.cast.length) h += `<div class="sec">Актёры</div>${people(it.cast)}`;
@@ -1328,6 +1350,7 @@ async function openSettings() {
   <div class="card"><p>Что выше в «Посмотрю → Сериалы»</p><div class="chips"><button data-order="0" class="${db.watchingFirst ? '' : 'on'}">Хочу посмотреть</button><button data-order="1" class="${db.watchingFirst ? 'on' : ''}">Начал смотреть</button></div></div>
   <div class="card"><p>Скрытые жанры — пропадают из поиска, подборок и фильмографий актёров. Твои списки не трогаются.</p><div class="chips genres">${GENRES.map(g => `<button data-genre="${g.k}" class="${(db.offGenres || []).includes(g.k) ? 'on' : ''}">${g.t}</button>`).join('')}</div></div>
   <div class="card"><p>Скрытые страны — их фильмы и сериалы пропадают так же, как скрытые жанры.</p><details class="ctry"><summary><span data-ctrysum>${ctrySum()}</span><span class="chev">›</span></summary><div class="ctrylist">${COUNTRIES.map(([k, f, t]) => `<button data-ctry="${k}" class="${(db.offLangs || []).includes(k) ? 'on' : ''}"><span class="fl">${f}</span><span class="nm">${t}</span><span class="ck"></span></button>`).join('')}</div></details></div>
+  <div class="card"><button class="swrow" data-allstud="1"><span>Показывать все студии в карточке<small>Выключено — только главная</small></span><i class="sw ${db.allStudios ? 'on' : ''}"></i></button></div>
   <div class="card"><p>Спрятанные фильмы и сериалы${hid.length ? ' · ' + hid.length : ''}</p>${hid.length ? hid.map(x => `<div class="hrow"><span>${esc(x.title)}<small>${x.year || ''}${x.type === 'tv' ? ' · сериал' : ''}</small></span><button data-unhide="${uid(x.type, x.id)}">Вернуть</button></div>`).join('') : '<p style="margin:0">Пока ничего. Спрятать можно кнопкой внизу карточки.</p>'}</div>
   <div class="card"><p>В списках ${n}. ${est}</p><p>Все данные хранятся только на этом телефоне. Если удалить иконку приложения, они пропадут — поэтому иногда сохраняй копию (например, в iCloud Drive).</p>
   <button class="wide" id="exp">Сохранить копию</button><button class="wide" id="imp">Восстановить из копии</button></div>
@@ -1337,7 +1360,7 @@ async function openSettings() {
   caches.keys().then(k => { const v = k.find(x => /^kino-v\d+$/.test(x)), el = L.el.querySelector('#ver'); if (v && el) el.textContent = 'Версия ' + v.slice(6) + '. '; }).catch(() => {});
 }
 async function exportData() {
-  const data = JSON.stringify({ app: 'kino', saved: new Date().toISOString(), items: db.items, folders: db.folders || [], hiddenItems: db.hiddenItems || {}, offGenres: db.offGenres || [], offLangs: db.offLangs || [] }, null, 1);
+  const data = JSON.stringify({ app: 'kino', saved: new Date().toISOString(), items: db.items, folders: db.folders || [], hiddenItems: db.hiddenItems || {}, offGenres: db.offGenres || [], offLangs: db.offLangs || [], allStudios: !!db.allStudios }, null, 1);
   const name = 'kino-' + new Date().toISOString().slice(0, 10) + '.json';
   const file = new File([data], name, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; } }
@@ -1349,7 +1372,7 @@ $('#file').addEventListener('change', async e => {
     const d = JSON.parse(await f.text());
     if (!d.items || typeof d.items !== 'object') throw 0;
     if (!await ask({ title: 'Восстановить из копии?', text: `${Object.keys(d.items).length} записей. Текущие списки заменятся.`, ok: 'Восстановить', danger: true })) return;
-    db.items = d.items; if (d.folders) db.folders = d.folders; if (d.hiddenItems) db.hiddenItems = d.hiddenItems; if (d.offGenres) db.offGenres = d.offGenres; if (d.offLangs) db.offLangs = d.offLangs; save(); closeSheet(); syncAll(); toast('Восстановлено');
+    db.items = d.items; if (d.folders) db.folders = d.folders; if (d.hiddenItems) db.hiddenItems = d.hiddenItems; if (d.offGenres) db.offGenres = d.offGenres; if (d.offLangs) db.offLangs = d.offLangs; if (d.allStudios !== undefined) db.allStudios = d.allStudios; save(); closeSheet(); syncAll(); toast('Восстановлено');
   } catch { toast('Это не файл копии'); }
 });
 
@@ -1403,6 +1426,7 @@ function layerClick(e, L) {
   if (t.dataset.unhide) { delete db.hiddenItems[t.dataset.unhide]; save(); openSettings(); return; }
   if (t.dataset.order) { db.watchingFirst = t.dataset.order === '1'; save(); t.parentNode.querySelectorAll('[data-order]').forEach(b => b.classList.toggle('on', b === t)); refreshMain(); return; }
   if (t.dataset.show) { const k = t.dataset.show; db[k] = !db[k]; save(); t.classList.toggle('on', !db[k]); refreshMain(); return; }
+  if (t.dataset.allstud) { db.allStudios = !db.allStudios; save(); t.querySelector('.sw').classList.toggle('on', db.allStudios); return; }
   if (t.dataset.ctry) { const k = t.dataset.ctry, off = db.offLangs = db.offLangs || [], i = off.indexOf(k); if (i >= 0) off.splice(i, 1); else off.push(k); save(); results = null; colMix = {}; t.classList.toggle('on'); t.closest('details').querySelector('[data-ctrysum]').textContent = ctrySum(); return; }
   if (t.dataset.genre) { const k = t.dataset.genre, off = db.offGenres = db.offGenres || [], i = off.indexOf(k); if (i >= 0) off.splice(i, 1); else off.push(k); save(); results = null; t.classList.toggle('on'); return; }
   if (t.dataset.st) return setStatus(t.dataset.st);
