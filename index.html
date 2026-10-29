@@ -53,6 +53,8 @@ nav button.on{color:var(--gold)}
 .lhd{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-size:20px;font-weight:700;letter-spacing:-.2px}
 .lhd i{width:9px;height:9px;border-radius:50%;background:var(--gold)}
 .lsec.go .lhd i{background:#5fd39a}
+.lsec.no{border-color:rgba(255,90,90,.5);background:linear-gradient(180deg,rgba(255,90,90,.10),var(--card) 120px)}
+.lsec.no .lhd i{background:#ff5a5a}
 .sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:24px 0 10px}
 .row{display:flex;gap:12px;align-items:center;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line);margin-bottom:10px;width:100%}
 .row .poster{width:56px;flex:none;border-radius:8px}
@@ -588,8 +590,9 @@ function render() {
       const soon = i => noHQ(i) || !!(i.release && i.release > today()) || (!i.release && /Planned|Production|Rumored/.test(i.mstatus || ''));
       const can = list.filter(i => !soon(i)), wait = list.filter(soon);
       if (wait.length) {
-        h += (can.length ? `<div class="sec" style="margin-top:4px">Можно посмотреть</div><div class="grid">${can.map(i => tile(i)).join('')}</div>` : '')
-          + `<div class="sec"${can.length ? '' : ' style="margin-top:4px"'}>Ещё нет в сети</div><div class="grid">${wait.map(i => tile(i)).join('')}</div>`;
+        // Как у сериалов: каждый раздел в своей рамке; «Ещё нет в сети» — с красным оттенком
+        const bx = (cls, t, l) => `<section class="lsec${cls}"><div class="lhd"><i></i>${t}</div><div class="grid">${l.map(i => tile(i)).join('')}</div></section>`;
+        h += (can.length ? bx('', 'Можно посмотреть', can) : '') + bx(' no', 'Ещё нет в сети', wait);
         m.innerHTML = h; return;
       }
     }
