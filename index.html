@@ -89,6 +89,13 @@ nav button.on{color:var(--gold)}
 .col .emo{font-size:40px;line-height:1}
 .col .ct{font-size:19px;font-weight:600;margin-top:12px;letter-spacing:-.2px;line-height:1.25}
 .col .cn{color:var(--muted);font-size:15px;margin-top:6px}
+/* Смахивание коллекции: влево — в избранные, вправо — удалить */
+.swp{position:relative;margin-bottom:12px;border-radius:18px;overflow:hidden}
+.swp .col{margin-bottom:0;position:relative;transition:transform .2s}
+.swp.dragging .col{transition:none}
+.swp .bg{position:absolute;inset:0;display:flex;align-items:center;padding:0 22px;font-weight:600;font-size:16px;color:#fff;opacity:0}
+.swp .bg.fav{background:#4f7cff;justify-content:flex-end}
+.swp .bg.del{background:#e5484d;justify-content:flex-start}
 .mkcol{margin-left:auto;padding:7px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--gold);font-size:14px;font-weight:600}
 .more.del{color:#ff6b6b}
 .fixgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -178,6 +185,21 @@ button.person{display:block}
 .airbar{display:flex;justify-content:center;gap:8px;margin-bottom:14px}
 .airbar button{padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
 .airbar button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
+.ctry summary{list-style:none;display:flex;align-items:center;gap:10px;margin-top:10px;padding:12px 14px;border-radius:14px;background:var(--bg);border:1px solid var(--line);font-size:15px;cursor:pointer}
+.ctry summary::-webkit-details-marker{display:none}
+.ctry summary span:first-child{flex:1}
+.ctry .chev{color:var(--muted);font-size:20px;transition:transform .2s}
+.ctry[open] .chev{transform:rotate(90deg)}
+.ctrylist{margin-top:8px;border-radius:14px;border:1px solid var(--line);overflow:hidden}
+.ctrylist button{display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;background:none;border:0;border-bottom:1px solid var(--line);font-size:15px;text-align:left;color:var(--text)}
+.ctrylist button:last-child{border-bottom:0}
+.ctrylist .fl{font-size:20px}
+.ctrylist .nm{flex:1}
+.ctrylist .ck{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line)}
+.ctrylist button.on .nm{color:var(--muted);text-decoration:line-through}
+.ctrylist .ck{display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700}
+.ctrylist button.on .ck{background:#e5484d;border-color:#e5484d}
+.ctrylist button.on .ck::after{content:'✕'}
 .chips button.add{color:var(--muted);border-style:dashed}
 .chips button.pen{display:grid;place-items:center;padding:0;width:40px}
 .chips button.pen svg{width:17px;height:17px}
@@ -621,10 +643,14 @@ const GENRES = [
   { k: 'fantasy', t: 'Фэнтези и фантастика', ids: [14, 878, 10765] }, { k: 'crime', t: 'Криминал', ids: [80] }, { k: 'comedy', t: 'Комедии', ids: [35] },
   { k: 'thriller', t: 'Триллеры', ids: [53] }, { k: 'action', t: 'Боевики', ids: [28, 10759] }, { k: 'history', t: 'Исторические', ids: [36] }, { k: 'drama', t: 'Драмы', ids: [18] },
 ];
+// Страны — по языку оригинала (он есть у каждого фильма из TMDB)
+const COUNTRIES = [['ja', '🇯🇵', 'Япония'], ['ko', '🇰🇷', 'Корея'], ['zh', '🇨🇳', 'Китай'], ['cn', '🇭🇰', 'Гонконг'], ['hi', '🇮🇳', 'Индия'], ['th', '🇹🇭', 'Таиланд'], ['tr', '🇹🇷', 'Турция'], ['ru', '🇷🇺', 'Россия'], ['uk', '🇺🇦', 'Украина'], ['pl', '🇵🇱', 'Польша'], ['fr', '🇫🇷', 'Франция'], ['de', '🇩🇪', 'Германия'], ['it', '🇮🇹', 'Италия'], ['es', '🇪🇸', 'Испания и Латинская Америка'], ['pt', '🇧🇷', 'Бразилия и Португалия'], ['sv', '🇸🇪', 'Швеция'], ['da', '🇩🇰', 'Дания'], ['no', '🇳🇴', 'Норвегия'], ['fi', '🇫🇮', 'Финляндия'], ['nl', '🇳🇱', 'Нидерланды'], ['ar', '🇸🇦', 'Арабские страны'], ['fa', '🇮🇷', 'Иран'], ['he', '🇮🇱', 'Израиль'], ['id', '🇮🇩', 'Индонезия'], ['tl', '🇵🇭', 'Филиппины']];
 const isAnime = x => (x.g || []).includes(16) && x.lang === 'ja';
 // Скрыто ли из поиска, подборок и фильмографий: спрятано вручную или жанр выключен
+const ctrySum = () => { const l = COUNTRIES.filter(c => (db.offLangs || []).includes(c[0])); return l.length ? 'Скрыто: ' + l.map(c => c[1] + ' ' + c[2]).join(', ') : 'Ничего не скрыто — нажми, чтобы выбрать'; };
 function hiddenX(x) {
   if ((db.hiddenItems || {})[uid(x.type, x.id)]) return true;
+  if (x.lang && (db.offLangs || []).includes(x.lang)) return true;
   const off = db.offGenres || []; if (!off.length) return false;
   for (const k of off) {
     if (k === 'anime') { if (isAnime(x)) return true; continue; }
@@ -839,13 +865,13 @@ function renderShelves() {
   });
   h += `<div class="seg" style="margin-top:28px">${['movie', 'tv'].map(t => `<button data-seg="${t}" class="${type === t ? 'on' : ''}">${t === 'movie' ? 'Фильмы' : 'Сериалы'}</button>`).join('')}</div>`;
   if (cols) {
-    const ok = cols.cols.map(c => ({ i: c.i, items: fresh(c.items) })).filter(c => colDef(type, c.i) && c.items.length >= (colDef(type, c.i).own ? 1 : 4));
+    const ok = cols.cols.map(c => ({ i: c.i, items: fresh(c.items) })).filter(c => colDef(type, c.i) && !(db.hiddenCols || []).includes(favKey(type, c.i)) && c.items.length >= (colDef(type, c.i).own ? 1 : 4));
     // Обычные коллекции (и свои) — 10 случайных, новый набор при каждом заходе; стриминги и избранные — всегда внизу
     if (!colMix[type]) colMix[type] = ok.filter(c => !colDef(type, c.i).fixed && !isFav(type, c.i)).map(c => c.i).sort(() => Math.random() - 0.5).slice(0, 10);
     const shown = colMix[type].map(i => ok.find(c => c.i === i)).filter(c => c && !isFav(type, c.i)), fix = ok.filter(c => colDef(type, c.i).fixed), fav = ok.filter(c => !colDef(type, c.i).fixed && isFav(type, c.i));
     h += `<div class="colhead"><h3>Коллекции</h3><button class="mkcol" data-mkcol="1">＋ Создать</button></div>` + shown.map(c => {
       const def = colDef(type, c.i), n = c.items.length;
-      return `<button class="col" data-col="${c.i}"><div class="emo">${def.e}</div><div class="ct">${esc(def.t)}</div><div class="cn">${n} ${plural(n, 'новый', 'новых', 'новых')}</div></button>`;
+      return `<div class="swp" data-swp="${c.i}"><div class="bg del">Удалить</div><div class="bg fav">★ В избранные</div><button class="col" data-col="${c.i}"><div class="emo">${def.e}</div><div class="ct">${esc(def.t)}</div><div class="cn">${n} ${plural(n, 'новый', 'новых', 'новых')}</div></button></div>`;
     }).join('');
     // Постоянные: стриминги и «Оскар» — отдельным блоком в цветах сервисов
     const fc = (b, c, attr, t, sub) => `<button class="fixc" style="--b:${b};--c:${c}" ${attr}><div class="ct">${t}</div><div class="cn">${sub}</div></button>`;
@@ -854,11 +880,43 @@ function renderShelves() {
       + (type === 'movie' ? fc('#c9a23a', '#e2b84a', 'data-oscar="1"', 'Премия Оскар', 'Победители по годам') : '') + '</div>';
   } else h += `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю коллекции…' : 'Коллекции появятся, когда будет интернет.'}</div>`;
   m.innerHTML = h;
+  m.querySelectorAll('[data-swp]').forEach(w => swipeCol(w, type));
   // «Для тебя» листается бесконечно: у края догружаем ещё рекомендации
   m.querySelectorAll('[data-fy]').forEach(sc => sc.addEventListener('scroll', () => { if (sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 500) moreFy(sc.dataset.fy, sc); }, { passive: true }));
   if (!top || top.v !== 4 || Date.now() - top.at > 6 * 36e5) loadTop();
   if (!dc.fy || dc.fy.v !== 3 || dc.fy.day !== today() || dc.fy.sig !== tasteSig()) loadForYou();
   if (!cols || cols.day !== today() || cols.v !== 9) loadCols(type);
+}
+// Смахнуть коллекцию: влево — в избранные подборки, вправо — удалить (свою — совсем, встроенную — скрыть)
+function swipeCol(w, type) {
+  const b = w.querySelector('.col'), v = w.dataset.swp, i = /^\d+$/.test(v) ? +v : v;
+  let x0 = null, y0 = 0, dx = 0, horiz = null;
+  w.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horiz = null; }, { passive: true });
+  w.addEventListener('touchmove', e => {
+    if (x0 === null) return;
+    dx = e.touches[0].clientX - x0; const dy = e.touches[0].clientY - y0;
+    if (horiz === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horiz = Math.abs(dx) > Math.abs(dy);
+    if (!horiz) return;
+    e.preventDefault(); w.classList.add('dragging'); b.style.transform = `translateX(${dx}px)`;
+    w.querySelector('.del').style.opacity = dx > 0 ? 1 : 0; w.querySelector('.fav').style.opacity = dx < 0 ? 1 : 0;
+  }, { passive: false });
+  w.addEventListener('touchend', () => {
+    if (x0 === null) return; x0 = null; w.classList.remove('dragging');
+    if (!horiz) return;
+    // Нажатие после смахивания не должно открывать коллекцию
+    b.dataset.noclick = '1'; setTimeout(() => delete b.dataset.noclick, 400);
+    if (Math.abs(dx) < w.offsetWidth * 0.3) { b.style.transform = ''; return; }
+    b.style.transform = `translateX(${dx > 0 ? 110 : -110}%)`;
+    setTimeout(() => {
+      const k = favKey(type, i), def = colDef(type, i);
+      if (dx < 0) { (db.favCols = db.favCols || []).push(k); toast('Добавлено в избранные подборки'); }
+      else if (def.own) {
+        db.myCols = (db.myCols || []).filter(x => x.id !== i); db.favCols = (db.favCols || []).filter(x => x !== k);
+        const dc = db.disc && db.disc[type]; if (dc) dc.cols = dc.cols.filter(x => x.i !== i); toast('Коллекция удалена');
+      } else { (db.hiddenCols = db.hiddenCols || []).push(k); toast('Коллекция удалена'); }
+      save(); if (colMix[type]) colMix[type] = colMix[type].filter(x => x !== i); refreshMain();
+    }, 200);
+  });
 }
 // ---------- Свои коллекции ----------
 // Коллекция: встроенная — номер в COLLECTIONS, своя — id 'my…' в db.myCols. Избранное — db.favCols: ['movie:3', 'tv:my17…']
@@ -1265,6 +1323,7 @@ async function openSettings() {
   <div class="card"><p>Что показывать в «Посмотрю» и «Просмотрено». Белое — показывается. Нажми, чтобы спрятать или вернуть.</p><div class="chips"><button data-show="hideFolders" class="${db.hideFolders ? '' : 'on'}">Мои подборки</button><button data-show="hideAir" class="${db.hideAir ? '' : 'on'}">Идёт / Закончен</button></div></div>
   <div class="card"><p>Что выше в «Посмотрю → Сериалы»</p><div class="chips"><button data-order="0" class="${db.watchingFirst ? '' : 'on'}">Хочу посмотреть</button><button data-order="1" class="${db.watchingFirst ? 'on' : ''}">Начал смотреть</button></div></div>
   <div class="card"><p>Скрытые жанры — пропадают из поиска, подборок и фильмографий актёров. Твои списки не трогаются.</p><div class="chips genres">${GENRES.map(g => `<button data-genre="${g.k}" class="${(db.offGenres || []).includes(g.k) ? 'on' : ''}">${g.t}</button>`).join('')}</div></div>
+  <div class="card"><p>Скрытые страны — их фильмы и сериалы пропадают так же, как скрытые жанры.</p><details class="ctry"><summary><span data-ctrysum>${ctrySum()}</span><span class="chev">›</span></summary><div class="ctrylist">${COUNTRIES.map(([k, f, t]) => `<button data-ctry="${k}" class="${(db.offLangs || []).includes(k) ? 'on' : ''}"><span class="fl">${f}</span><span class="nm">${t}</span><span class="ck"></span></button>`).join('')}</div></details></div>
   <div class="card"><p>Спрятанные фильмы и сериалы${hid.length ? ' · ' + hid.length : ''}</p>${hid.length ? hid.map(x => `<div class="hrow"><span>${esc(x.title)}<small>${x.year || ''}${x.type === 'tv' ? ' · сериал' : ''}</small></span><button data-unhide="${uid(x.type, x.id)}">Вернуть</button></div>`).join('') : '<p style="margin:0">Пока ничего. Спрятать можно кнопкой внизу карточки.</p>'}</div>
   <div class="card"><p>В списках ${n}. ${est}</p><p>Все данные хранятся только на этом телефоне. Если удалить иконку приложения, они пропадут — поэтому иногда сохраняй копию (например, в iCloud Drive).</p>
   <button class="wide" id="exp">Сохранить копию</button><button class="wide" id="imp">Восстановить из копии</button></div>
@@ -1274,7 +1333,7 @@ async function openSettings() {
   caches.keys().then(k => { const v = k.find(x => /^kino-v\d+$/.test(x)), el = L.el.querySelector('#ver'); if (v && el) el.textContent = 'Версия ' + v.slice(6) + '. '; }).catch(() => {});
 }
 async function exportData() {
-  const data = JSON.stringify({ app: 'kino', saved: new Date().toISOString(), items: db.items, folders: db.folders || [], hiddenItems: db.hiddenItems || {}, offGenres: db.offGenres || [] }, null, 1);
+  const data = JSON.stringify({ app: 'kino', saved: new Date().toISOString(), items: db.items, folders: db.folders || [], hiddenItems: db.hiddenItems || {}, offGenres: db.offGenres || [], offLangs: db.offLangs || [] }, null, 1);
   const name = 'kino-' + new Date().toISOString().slice(0, 10) + '.json';
   const file = new File([data], name, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; } }
@@ -1286,7 +1345,7 @@ $('#file').addEventListener('change', async e => {
     const d = JSON.parse(await f.text());
     if (!d.items || typeof d.items !== 'object') throw 0;
     if (!await ask({ title: 'Восстановить из копии?', text: `${Object.keys(d.items).length} записей. Текущие списки заменятся.`, ok: 'Восстановить', danger: true })) return;
-    db.items = d.items; if (d.folders) db.folders = d.folders; if (d.hiddenItems) db.hiddenItems = d.hiddenItems; if (d.offGenres) db.offGenres = d.offGenres; save(); closeSheet(); syncAll(); toast('Восстановлено');
+    db.items = d.items; if (d.folders) db.folders = d.folders; if (d.hiddenItems) db.hiddenItems = d.hiddenItems; if (d.offGenres) db.offGenres = d.offGenres; if (d.offLangs) db.offLangs = d.offLangs; save(); closeSheet(); syncAll(); toast('Восстановлено');
   } catch { toast('Это не файл копии'); }
 });
 
@@ -1303,7 +1362,7 @@ $('#main').addEventListener('click', e => {
   const ab = e.target.closest('[data-air]'); if (ab) { airF = airF === ab.dataset.air ? 'all' : ab.dataset.air; try { localStorage.setItem('kino-air', airF); } catch {} const y = scrollY; render(); scrollTo(0, y); return; }
   const sg = e.target.closest('[data-seg]'); if (sg) { seg[tab] = sg.dataset.seg; const y = scrollY; render(); scrollTo(0, y); return; }
   if (e.target.closest('[data-mkcol]')) return createCollection();
-  const cl = e.target.closest('[data-col]'); if (cl) { const v = cl.dataset.col; return openCollection(/^\d+$/.test(v) ? +v : v); }
+  const cl = e.target.closest('[data-col]'); if (cl && cl.dataset.noclick) return; if (cl) { const v = cl.dataset.col; return openCollection(/^\d+$/.test(v) ? +v : v); }
   if (e.target.closest('[data-oscar]')) return openOscar();
   const nx = e.target.closest('[data-next]');
   if (nx) { const it = db.items['tv-' + nx.dataset.next], n = nextEp(it); if (n) { toggleEp(it, n.s, n.e); toast(`Сезон ${n.s}, серия ${n.e} — просмотрена`); render(); } return; }
@@ -1340,6 +1399,7 @@ function layerClick(e, L) {
   if (t.dataset.unhide) { delete db.hiddenItems[t.dataset.unhide]; save(); openSettings(); return; }
   if (t.dataset.order) { db.watchingFirst = t.dataset.order === '1'; save(); t.parentNode.querySelectorAll('[data-order]').forEach(b => b.classList.toggle('on', b === t)); refreshMain(); return; }
   if (t.dataset.show) { const k = t.dataset.show; db[k] = !db[k]; save(); t.classList.toggle('on', !db[k]); refreshMain(); return; }
+  if (t.dataset.ctry) { const k = t.dataset.ctry, off = db.offLangs = db.offLangs || [], i = off.indexOf(k); if (i >= 0) off.splice(i, 1); else off.push(k); save(); results = null; colMix = {}; t.classList.toggle('on'); t.closest('details').querySelector('[data-ctrysum]').textContent = ctrySum(); return; }
   if (t.dataset.genre) { const k = t.dataset.genre, off = db.offGenres = db.offGenres || [], i = off.indexOf(k); if (i >= 0) off.splice(i, 1); else off.push(k); save(); results = null; t.classList.toggle('on'); return; }
   if (t.dataset.st) return setStatus(t.dataset.st);
   if (t.dataset.season) { const n = +t.dataset.season; openSeason = openSeason === n ? null : n; renderSheet(); return; }
