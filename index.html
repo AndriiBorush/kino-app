@@ -45,6 +45,7 @@ nav button.on{color:var(--gold)}
 .row .s{font-size:13px;color:var(--muted);margin-top:3px}
 .bar{height:4px;background:var(--line);border-radius:2px;margin-top:8px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--gold)}
+.tplus{position:absolute;right:6px;bottom:6px;padding:6px 10px;border-radius:10px;background:rgba(14,16,20,.85);border:1px solid var(--line);color:var(--gold);font-weight:600;font-size:14px;z-index:2}
 .plus{flex:none;width:52px;height:44px;border-radius:12px;background:var(--key);border:1px solid var(--line);color:var(--gold);font-weight:600;font-size:15px}
 .sbox{position:relative;margin-bottom:16px}
 .sbox .search{margin-bottom:0;padding-right:48px}
@@ -243,7 +244,7 @@ function fromApi(x, type) {
   pool[uid(type, it.id)] = pool[uid(type, it.id)] || it;
   return it;
 }
-const DV = 7; // версия набора данных карточки: старые записи догружаются заново
+const DV = 8; // версия набора данных карточки: старые записи догружаются заново
 const JOBS = { Director: 'Режиссёр', Screenplay: 'Сценарий', Writer: 'Сценарий', Novel: 'Автор книги', 'Original Music Composer': 'Композитор', 'Director of Photography': 'Оператор', Producer: 'Продюсер' };
 // Жанры, актёры, съёмочная группа, сезоны — одним запросом
 async function loadDetails(it) {
@@ -261,6 +262,9 @@ async function loadDetails(it) {
     const th = c => (rd(c).find(x => x.type === 3) || rd(c).find(x => x.type === 2) || {}).release_date;
     const ru = th('RU'), us = th('US');
     it.release = (ru || us || d.release_date || '').slice(0, 10); it.releaseIn = ru ? '' : us ? 'США' : '';
+    // Выход в сети (цифровой или на дисках) — самая ранняя дата по всем странам
+    const dg = ((d.release_dates || {}).results || []).flatMap(r => r.release_dates).filter(x => x.type === 4 || x.type === 5).map(x => x.release_date.slice(0, 10)).sort();
+    it.digital = dg[0] || '';
     it.mstatus = d.status || '';
   }
   it.genres = (d.genres || []).map(g => g.name); it.g = (d.genres || []).map(g => g.id); it.lang = d.original_language || it.lang || '';
@@ -322,7 +326,7 @@ async function syncAll() {
   // Догружаем жанры и актёров, где их нет; раз в сутки обновляем сезоны — появятся новые серии
   const daily = Date.now() - (db.showsChecked || 0) > 864e5;
   for (const it of Object.values(db.items)) {
-    if (!it.details || it.dv !== DV || (daily && it.type === 'tv' && it.status !== 'watched')) { try { await loadDetails(it); } catch {} }
+    if (!it.details || it.dv !== DV || (daily && it.status !== 'watched' && (it.type === 'tv' || noHQ(it)))) { try { await loadDetails(it); } catch {} }
     // Для статистики: точная длительность просмотренных серий (одна загрузка на сезон)
     if (it.type === 'tv') for (const sn of Object.keys(it.seen || {})) {
       if ((it.seen[sn] || []).length && !((it.eps || {})[sn] || []).some(x => 'm' in x)) { try { await loadEps(it, +sn); } catch {} }
@@ -390,10 +394,13 @@ function tvState(it) {
   return { c: 'wait', t: 'Ждём сезон ' + (n + 1) + ' · дата не объявлена' };
 }
 const addDays = k => new Date(Date.now() + k * 864e5).toISOString().slice(0, 10);
+// Фильм уже в кино, но в сети ещё нет. Смотрим только последние 8 месяцев: у старых фильмов даты выхода в сети часто не заполнены
+const noHQ = it => it.type === 'movie' && it.release && it.release <= today() && it.release >= addDays(-240) && !(it.digital && it.digital <= today());
 function movieState(it) {
   if (it.type !== 'movie' || !it.dv) return null;
   if (it.release && it.release > today()) return { c: 'wait', t: 'В кино с ' + fmtDate(it.release) + (it.releaseIn ? ' · ' + it.releaseIn : '') };
   if (!it.release && /Planned|Production|Rumored/.test(it.mstatus)) return { c: 'wait', t: 'Дата выхода не объявлена' };
+  if (noHQ(it)) return { c: 'wait', t: it.digital > today() ? 'В хорошем качестве с ' + fmtDate(it.digital) : 'В кино · в хорошем качестве ещё нет' };
   return null;
 }
 const dot = st => st ? `<i class="dot ${st.c}"></i>` : '';
@@ -409,15 +416,18 @@ function afterEpisodes(it) {
 // У «Посмотрю» и «Просмотрено» заголовка нет — по просьбе Андрея
 const names = { want: '', watched: '', lists: 'Подборки', search: 'Поиск' };
 function setTab(t) {
+  if (t === 'lists' && tab !== 'lists') fyMix = {};
   tab = t; $('#title').textContent = names[t];
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   render(); scrollTo(0, 0);
 }
 const statusName = s => s === 'want' ? 'В «Посмотрю»' : s === 'watched' ? 'Просмотрено' : 'Смотрю';
-function tile(it) {
+function tile(it, sub) {
   const own = db.items[uid(it.type, it.id)], x = own || it, p = poster(x.poster);
-  return `<button class="tile" data-open="${uid(x.type, x.id)}"><div class="poster">${esc(x.title)}${p ? `<img src="${p}" alt="" loading="lazy" onerror="this.remove()">` : ''}${own ? dot(tvState(own)) : ''}</div><div class="t">${esc(x.title)}</div><div class="s">${own && tab !== 'want' && tab !== 'watched' ? `<span class="mark">${statusName(own.status)}</span>` : (x.year || '') + (x.type === 'tv' ? ' · сериал' : '')}</div></button>`;
+  return `<button class="tile" data-open="${uid(x.type, x.id)}"><div class="poster">${esc(x.title)}${p ? `<img src="${p}" alt="" loading="lazy" onerror="this.remove()">` : ''}${own ? dot(tvState(own)) : ''}</div><div class="t">${esc(x.title)}</div><div class="s">${typeof sub === 'string' ? sub : own && tab !== 'want' && tab !== 'watched' ? `<span class="mark">${statusName(own.status)}</span>` : (x.year || '') + (x.type === 'tv' ? ' · сериал' : '')}</div></button>`;
 }
+// «Начал смотреть» — такие же карточки, «+1» на постере; под названием — следующая серия
+const watchTile = it => { const n = nextEp(it), h = tile(it, n ? `Дальше: С${n.s} · Э${n.e}` : 'Досмотрен'); return n ? h.replace('</div><div class="t">', `<span class="tplus" role="button" data-next="${it.id}">+1</span></div><div class="t">`) : h; };
 function segBar() {
   const s = seg[tab];
   return `<div class="seg"><button data-seg="movie" class="${s === 'movie' ? 'on' : ''}">Фильмы</button><button data-seg="tv" class="${s === 'tv' ? 'on' : ''}">Сериалы</button></div>`;
@@ -441,9 +451,21 @@ function render() {
     const list = all.filter(i => i.type === type && i.status === 'want' && inF(i)).sort((a, b) => b.addedAt - a.addedAt);
     const watching = type === 'tv' ? all.filter(i => i.type === 'tv' && i.status === 'watching' && inF(i)).sort((a, b) => (b.touchedAt || 0) - (a.touchedAt || 0)) : [];
     let h = segBar() + folderBar() + (type === 'tv' ? airBar() : '');
+    // Фильмы: сверху «Можно посмотреть», ниже «Ещё нет в сети» (в кино, ещё не вышли, без даты); вышли в сети — сами поднимаются вверх
+    if (type === 'movie' && list.length) {
+      const soon = i => noHQ(i) || !!(i.release && i.release > today()) || (!i.release && /Planned|Production|Rumored/.test(i.mstatus || ''));
+      const can = list.filter(i => !soon(i)), wait = list.filter(soon);
+      if (wait.length) {
+        h += (can.length ? `<div class="sec" style="margin-top:4px">Можно посмотреть</div><div class="grid">${can.map(i => tile(i)).join('')}</div>` : '')
+          + `<div class="sec"${can.length ? '' : ' style="margin-top:4px"'}>Ещё нет в сети</div><div class="grid">${wait.map(i => tile(i)).join('')}</div>`;
+        m.innerHTML = h; return;
+      }
+    }
     if (f && !list.length && !watching.length) { m.innerHTML = h + `<div class="empty">В подборке «${esc(f.name)}» пока пусто.<br>Добавь фильм через его карточку.</div>`; return; }
-    if (watching.length) h += `<div class="sec" style="margin-top:4px">Смотрю сейчас</div>${watching.map(showRow).join('')}${list.length ? '<div class="sec">Хочу посмотреть</div>' : ''}`;
-    if (watching.length && !list.length) {} else h += list.length ?`${watching.length ? '' : `<p class="count">${list.length} в списке</p>`}<div class="grid">${list.map(tile).join('')}</div>` : `<div class="empty">Здесь будут ${word}, которые хочешь посмотреть.<br>Найди их в «Поиске» или «Подборках».</div>`;
+    // Сначала «Хочу посмотреть», ниже «Начал смотреть» — по просьбе Андрея
+    if (list.length) h += `${watching.length ? '<div class="sec" style="margin-top:4px">Хочу посмотреть</div>' : `<p class="count">${list.length} в списке</p>`}<div class="grid">${list.map(i => tile(i)).join('')}</div>`;
+    else if (!watching.length) h += `<div class="empty">Здесь будут ${word}, которые хочешь посмотреть.<br>Найди их в «Поиске» или «Подборках».</div>`;
+    if (watching.length) h += `<div class="sec"${list.length ? '' : ' style="margin-top:4px"'}>Начал смотреть</div><div class="grid">${watching.map(watchTile).join('')}</div>`;
     m.innerHTML = h;
   } else if (tab === 'watched') {
     const type = seg.watched, f = curFolder();
@@ -706,11 +728,25 @@ async function loadForYou() {
     const prof = {}; mine.forEach(i => (i.g || []).forEach(g => prof[g] = (prof[g] || 0) + 1 / mine.length));
     const fit = o => o.g.length ? o.g.reduce((a, g) => a + (prof[g] || 0), 0) / o.g.length : 0;
     const rank = o => o.s * (0.4 + o.v / 10) * (0.25 + fit(o) * 1.5);
-    out[type] = Object.values(score).sort((a, b) => rank(b) - rank(a)).map(o => o.it).slice(0, 40);
+    out[type] = Object.values(score).sort((a, b) => rank(b) - rank(a)).map(o => o.it).slice(0, 60);
   }
   db.disc = db.disc || {}; db.disc.fy = { v: 3, day: today(), sig: tasteSig(), ...out }; save();
   discLoading.fy = false;
   if (tab === 'lists' && !stack.length) refreshMain();
+}
+// Лента «Для тебя» перемешивается при каждом заходе в «Подборки»:
+// лучшие совпадения чаще впереди, а показанное и не взятое уходит назад
+let fyMix = {};
+function fyOrder(t, l) {
+  const key = l.map(x => x.id).join();
+  if (fyMix[t] && fyMix[t].key === key) return fyMix[t].l;
+  // Внутри одного захода порядок не прыгает: добавленное просто уходит, хвост дополняется
+  if (fyMix[t]) { const ids = new Set(l.map(x => x.id)), keep = fyMix[t].l.filter(x => ids.has(x.id)), had = new Set(keep.map(x => x.id)); fyMix[t] = { key, l: keep.concat(l.filter(x => !had.has(x.id)).slice(0, 20 - keep.length)) }; return fyMix[t].l; }
+  const seen = db.fySeen || (db.fySeen = {});
+  const out = l.map((x, i) => ({ x, s: (0.5 + Math.random()) * 0.6 ** (seen[uid(x.type, x.id)] || 0) / (1 + i / 15) }))
+    .sort((a, b) => b.s - a.s).map(o => o.x).slice(0, 20);
+  out.forEach(x => { const k = uid(x.type, x.id); seen[k] = (seen[k] || 0) + 1; }); save();
+  fyMix[t] = { key, l: out }; return out;
 }
 function renderShelves() {
   const m = $('#main'), dc = db.disc || {}, type = seg.lists;
@@ -721,7 +757,7 @@ function renderShelves() {
     : `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю…' : 'Подборки появятся, когда будет интернет.'}</div>`;
   const fy = dc.fy;
   if (fy) [['movie', 'Фильмы для тебя'], ['tv', 'Сериалы для тебя']].forEach(([t, title]) => {
-    const l = visible(fy[t]).filter(x => !db.items[uid(x.type, x.id)]).slice(0, 20);
+    const l = fyOrder(t, visible(fy[t]).filter(x => !db.items[uid(x.type, x.id)]));
     l.forEach(x => pool[uid(x.type, x.id)] = pool[uid(x.type, x.id)] || x);
     if (l.length) h += `<div class="shelf"><h3>${title}</h3><p class="sub">По тому, что ты смотрел и собираешься</p><div class="scroller">${l.map(tile).join('')}</div></div>`;
   });
