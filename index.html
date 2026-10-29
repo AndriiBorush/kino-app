@@ -1185,6 +1185,8 @@ function removeItem(it) {
   save();
   // Карточка остаётся открытой — можно сразу добавить обратно
   cur = { ...it, status: undefined, seen: {}, rating: undefined }; delete cur.addedAt;
+  // Окно карточки помнит прежний объект — переводим его на новый, иначе кнопка «Посмотрю» не погаснет
+  stack.forEach(l => { if (l.it === it) l.it = cur; });
   renderSheet(); toast('Убрано из списков');
 }
 function setStatus(st) {
