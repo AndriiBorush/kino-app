@@ -1000,7 +1000,7 @@ function openCollection(i) {
   const type = seg.lists, def = colDef(type, i), c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
   if (!c) return;
   const L = pushLayer('page', true), el = L.el; L.drop = true;
-  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${newerFirst(fresh(c.items)).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1">Показать ещё</button>' : `<button class="more" data-fav="1">${isFav(type, i) ? 'Убрать из избранных подборок' : '★ В избранные подборки'}</button>${def.own ? '<button class="more del" data-delcol="1">Удалить коллекцию</button>' : ''}`}</div>`;
+  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${newerFirst(fresh(c.items)).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1" style="border:0;background:none;color:var(--muted)"></button>' : `<button class="more" data-fav="1">${isFav(type, i) ? 'Убрать из избранных подборок' : '★ В избранные подборки'}</button>${def.own ? '<button class="more del" data-delcol="1">Удалить коллекцию</button>' : ''}`}</div>`;
   if (!def.fixed) {
     L.onButton = async t => {
       if (t.dataset.fav) {
@@ -1018,21 +1018,24 @@ function openCollection(i) {
     };
     return;
   }
-  // Стриминги: весь каталог — догружаем страницы TMDB по кнопке
-  let page = 1;
-  L.onButton = async t => {
-    if (!t.dataset.more || t.disabled) return;
-    if (!navigator.onLine || !db.key) return toast('Нужен интернет');
-    t.disabled = true; t.textContent = 'Загружаю…';
+  // Стриминги: весь каталог — сами догружаем страницы TMDB, когда долистал до низа
+  let page = 1, busy = false, end = false;
+  const t = el.querySelector('[data-more]'); t.disabled = true; t.textContent = '';
+  const more = async () => {
+    if (busy || end || !el.isConnected || el.scrollTop + el.clientHeight < el.scrollHeight - 900) return;
+    if (!navigator.onLine || !db.key) { t.textContent = 'Остальное — когда будет интернет'; return; }
+    busy = true; t.textContent = 'Загружаю…';
     try {
       const d = await api(def.path, { ...def.p, page: ++page });
       const have = new Set([...el.querySelectorAll('.tile[data-open]')].map(b => b.dataset.open));
       const add = fresh(listOf({ results: (d.results || []).filter(x => !noise(x)) }, type)).filter(x => x.date && x.date <= today() && !have.has(uid(x.type, x.id)));
       el.querySelector('.grid').insertAdjacentHTML('beforeend', add.map(tile).join(''));
       const n = el.querySelectorAll('.grid .tile').length, h = el.querySelector('.pagehead .s'); h.textContent = h.textContent.replace(/\d+$/, n);
-      if (page >= (d.total_pages || 0)) t.remove(); else { t.disabled = false; t.textContent = 'Показать ещё'; }
-    } catch (e) { page--; t.disabled = false; t.textContent = 'Показать ещё'; toast(errText(e)); }
+      t.textContent = ''; busy = false;
+      if (page >= Math.min(d.total_pages || 0, 500)) { end = true; t.remove(); } else more(); // страница короткая — грузим дальше сразу
+    } catch (e) { page--; busy = false; t.textContent = ''; toast(errText(e)); }
   };
+  el.addEventListener('scroll', more, { passive: true }); setTimeout(more, 300);
 }
 // Ток-шоу, новости, реалити и детские передачи — шум в стримингах
 const noise = x => (x.genre_ids || []).some(g => [10767, 10763, 10764, 10762].includes(g));
