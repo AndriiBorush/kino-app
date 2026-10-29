@@ -89,6 +89,8 @@ nav button.on{color:var(--gold)}
 .col .emo{font-size:40px;line-height:1}
 .col .ct{font-size:19px;font-weight:600;margin-top:12px;letter-spacing:-.2px;line-height:1.25}
 .col .cn{color:var(--muted);font-size:15px;margin-top:6px}
+.mkcol{margin-left:auto;padding:7px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line);color:var(--gold);font-size:14px;font-weight:600}
+.more.del{color:#ff6b6b}
 .fixgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .fixc{text-align:left;padding:16px 14px;border-radius:16px;border:1px solid var(--b);background:linear-gradient(160deg,var(--b) -60%,var(--card) 70%);min-height:96px}
 .fixc .ct{font-size:19px;font-weight:700;letter-spacing:-.2px;color:var(--c)}
@@ -727,16 +729,20 @@ async function loadTop() {
 }
 async function loadCols(type) {
   if (discLoading[type] || !db.key || !navigator.onLine) return; discLoading[type] = true;
-  // Грузим все коллекции раз в день — при каждом заходе показываем другой набор
-  const pickIdx = COLLECTIONS[type].map((_, i) => i);
-  const lists = await Promise.all(pickIdx.map(i => { const c = COLLECTIONS[type][i]; const nol = c.p.without_original_language;
-    // Ток-шоу, новости, реалити и детское в стримингах — шум
-    const ok = x => (!nol || x.original_language !== nol) && !(c.fixed && noise(x));
-    return api(c.path, c.p).then(d => listOf({ results: (d.results || []).filter(ok) }, type)).catch(() => []); }));
+  // Грузим все коллекции раз в день (и свои) — при каждом заходе показываем другой набор
+  const pickIdx = COLLECTIONS[type].map((_, i) => i).concat((db.myCols || []).filter(c => c.type === type).map(c => c.id));
+  const lists = await Promise.all(pickIdx.map(i => loadOne(colDef(type, i), type)));
   // В коллекциях только уже вышедшее
-  db.disc = db.disc || {}; db.disc[type] = { v: 8, day: today(), cols: pickIdx.map((i, k) => ({ i, items: lists[k].filter(x => x.date && x.date <= today()) })).filter(c => c.items.length) }; save();
+  db.disc = db.disc || {}; db.disc[type] = { v: 8, day: today(), cols: pickIdx.map((i, k) => ({ i, items: lists[k] })).filter(c => c.items.length) }; save();
   discLoading[type] = false;
   if (tab === 'lists' && !stack.length) refreshMain();
+}
+// Одна коллекция: первая страница TMDB, только уже вышедшее
+function loadOne(c, type) {
+  const nol = c.p.without_original_language;
+  // Ток-шоу, новости, реалити и детское в стримингах — шум
+  const ok = x => (!nol || x.original_language !== nol) && !(c.fixed && noise(x));
+  return api(c.path, c.p).then(d => listOf({ results: (d.results || []).filter(ok) }, type).filter(x => x.date && x.date <= today())).catch(() => []);
 }
 // ---------- «Для тебя»: по твоим спискам ----------
 // Подпись набора: меняется, когда что-то добавлено или убрано, — тогда пересобираем
@@ -828,17 +834,18 @@ function renderShelves() {
   });
   h += `<div class="seg" style="margin-top:28px">${['movie', 'tv'].map(t => `<button data-seg="${t}" class="${type === t ? 'on' : ''}">${t === 'movie' ? 'Фильмы' : 'Сериалы'}</button>`).join('')}</div>`;
   if (cols) {
-    const ok = cols.cols.map(c => ({ i: c.i, items: fresh(c.items) })).filter(c => c.items.length >= 4 && COLLECTIONS[type][c.i]);
-    // Обычные коллекции — 10 случайных, новый набор при каждом заходе; стриминги — всегда внизу
-    if (!colMix[type]) colMix[type] = ok.filter(c => !COLLECTIONS[type][c.i].fixed).map(c => c.i).sort(() => Math.random() - 0.5).slice(0, 10);
-    const shown = colMix[type].map(i => ok.find(c => c.i === i)).filter(Boolean), fix = ok.filter(c => COLLECTIONS[type][c.i].fixed);
-    h += `<div class="colhead"><h3>Коллекции</h3><span>${shown.length}</span></div>` + shown.map(c => {
-      const def = COLLECTIONS[type][c.i], n = c.items.length;
+    const ok = cols.cols.map(c => ({ i: c.i, items: fresh(c.items) })).filter(c => colDef(type, c.i) && c.items.length >= (colDef(type, c.i).own ? 1 : 4));
+    // Обычные коллекции (и свои) — 10 случайных, новый набор при каждом заходе; стриминги и избранные — всегда внизу
+    if (!colMix[type]) colMix[type] = ok.filter(c => !colDef(type, c.i).fixed && !isFav(type, c.i)).map(c => c.i).sort(() => Math.random() - 0.5).slice(0, 10);
+    const shown = colMix[type].map(i => ok.find(c => c.i === i)).filter(c => c && !isFav(type, c.i)), fix = ok.filter(c => colDef(type, c.i).fixed), fav = ok.filter(c => !colDef(type, c.i).fixed && isFav(type, c.i));
+    h += `<div class="colhead"><h3>Коллекции</h3><button class="mkcol" data-mkcol="1">＋ Создать</button></div>` + shown.map(c => {
+      const def = colDef(type, c.i), n = c.items.length;
       return `<button class="col" data-col="${c.i}"><div class="emo">${def.e}</div><div class="ct">${esc(def.t)}</div><div class="cn">${n} ${plural(n, 'новый', 'новых', 'новых')}</div></button>`;
     }).join('');
     // Постоянные: стриминги и «Оскар» — отдельным блоком в цветах сервисов
     const fc = (b, c, attr, t, sub) => `<button class="fixc" style="--b:${b};--c:${c}" ${attr}><div class="ct">${t}</div><div class="cn">${sub}</div></button>`;
-    h += `<div class="colhead" style="margin-top:30px"><h3>Избранные подборки</h3></div><div class="fixgrid">` + fix.map(c => { const def = COLLECTIONS[type][c.i]; return fc(def.b, def.c, `data-col="${c.i}"`, esc(def.t), 'Весь каталог'); }).join('')
+    h += `<div class="colhead" style="margin-top:30px"><h3>Избранные подборки</h3></div><div class="fixgrid">` + fix.map(c => { const def = colDef(type, c.i); return fc(def.b, def.c, `data-col="${c.i}"`, esc(def.t), 'Весь каталог'); }).join('')
+      + fav.map(c => { const def = colDef(type, c.i), n = c.items.length; return fc('#4f7cff', '#9db6ff', `data-col="${c.i}"`, esc(def.t), n + ' ' + plural(n, 'новый', 'новых', 'новых')); }).join('')
       + (type === 'movie' ? fc('#c9a23a', '#e2b84a', 'data-oscar="1"', 'Премия Оскар', 'Победители по годам') : '') + '</div>';
   } else h += `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю коллекции…' : 'Коллекции появятся, когда будет интернет.'}</div>`;
   m.innerHTML = h;
@@ -848,14 +855,101 @@ function renderShelves() {
   if (!dc.fy || dc.fy.v !== 3 || dc.fy.day !== today() || dc.fy.sig !== tasteSig()) loadForYou();
   if (!cols || cols.day !== today() || cols.v !== 8) loadCols(type);
 }
+// ---------- Свои коллекции ----------
+// Коллекция: встроенная — номер в COLLECTIONS, своя — id 'my…' в db.myCols. Избранное — db.favCols: ['movie:3', 'tv:my17…']
+const colDef = (type, i) => typeof i === 'string' ? (db.myCols || []).find(c => c.id === i && c.type === type) : COLLECTIONS[type][i];
+const favKey = (type, i) => type + ':' + i;
+const isFav = (type, i) => (db.favCols || []).includes(favKey(type, i));
+// Разбор названия в запрос TMDB: жанры, страна, десятилетие/год, «новые»; иначе — поиск по ключевым словам
+const CG = {
+  movie: [[/комед/, 35], [/драм/, 18], [/ужас|хоррор/, 27], [/триллер/, 53], [/фантаст|sci/, 878], [/фэнтез/, 14], [/боевик|экшн/, 28], [/приключ/, 12], [/мульт|анимац/, 16], [/детектив/, 9648], [/криминал|гангстер|мафи/, 80], [/мелодрам|романт|любов/, 10749], [/военн|войн/, 10752], [/истор/, 36], [/документ/, 99], [/семейн|детск/, 10751], [/вестерн/, 37], [/музык|мюзикл/, 10402]],
+  tv: [[/комед|ситком/, 35], [/драм/, 18], [/фантаст|фэнтез/, 10765], [/боевик|экшн|приключ/, 10759], [/мульт|анимац/, 16], [/детектив/, 9648], [/криминал|гангстер|мафи/, 80], [/военн|войн|полит/, 10768], [/документ/, 99], [/семейн|детск/, 10751], [/вестерн/, 37], [/мистик|ужас/, 9648]],
+};
+const CC = [[/американ|сша/, 'US'], [/британ|английск/, 'GB'], [/француз/, 'FR'], [/корейск/, 'KR'], [/японск/, 'JP'], [/итальян/, 'IT'], [/испанск/, 'ES'], [/немецк/, 'DE'], [/индийск/, 'IN'], [/турецк/, 'TR'], [/российск|русск|советск/, 'RU'], [/украинск/, 'UA'], [/шведск/, 'SE'], [/датск/, 'DK'], [/норвежск/, 'NO'], [/китайск/, 'CN'], [/канадск/, 'CA'], [/австралийск/, 'AU'], [/мексиканск/, 'MX'], [/бразильск/, 'BR'], [/польск/, 'PL']];
+// Темы по-русски → английское ключевое слово TMDB (там ключевые слова только на английском)
+const THEMES = [[/мам|матер|материн/, 'mother'], [/пап|отц|отец|отцов/, 'father'], [/семь/, 'family'], [/брат|сестр/, 'siblings'], [/дет(и|ей|ск)|ребён|ребен/, 'child'], [/подрост|школ/, 'high school'], [/студент|колледж|универ/, 'college'],
+  [/космос|космич|астронавт/, 'space'], [/пришел|инопланет/, 'alien'], [/робот/, 'robot'], [/искусствен|нейросет|(?<![а-яё])ии(?![а-яё])/, 'artificial intelligence'], [/врем(я|ени).*путеш|путеш.*врем/, 'time travel'], [/апокалип|конец света/, 'post-apocalyptic future'], [/зомби/, 'zombie'], [/вампир/, 'vampire'], [/оборот/, 'werewolf'], [/призрак|привиден/, 'ghost'], [/ведьм|колдун|магия|маг(?![а-яё])/, 'magic'], [/дракон/, 'dragon'], [/динозавр/, 'dinosaur'], [/супергер/, 'superhero'],
+  [/маньяк|серийн/, 'serial killer'], [/мафи|гангстер/, 'mafia'], [/ограблен|грабител/, 'heist'], [/тюрьм|заключ/, 'prison'], [/полиц|коп/, 'police'], [/шпион|разведк/, 'spy'], [/адвокат|юрист|суд/, 'lawyer'], [/врач|больниц|медиц/, 'hospital'], [/повар|кухн|еда|ресторан/, 'chef'],
+  [/спорт/, 'sports'], [/футбол/, 'football (soccer)'], [/бокс/, 'boxing'], [/гонк|машин|авто/, 'car race'], [/музык|музыкант|рок/, 'musician'], [/танц/, 'dance'], [/свадьб/, 'wedding'], [/рождеств|новый год|новогод/, 'christmas'], [/любов|романтик/, 'love'], [/дружб|друз/, 'friendship'],
+  [/собак|пёс|пес(?![а-яё])/, 'dog'], [/кош|кот(?![а-яё])|коты/, 'cat'], [/лошад|конь/, 'horse'], [/акул/, 'shark'], [/остров/, 'island'], [/море|океан/, 'ocean'], [/выжив/, 'survival'], [/путешеств|дорог/, 'road trip'], [/войн/, 'war'], [/истори.*реальн|реальн.*событ/, 'based on true story'], [/книг|экраниз/, 'based on novel or book'], [/офис|работ/, 'office'], [/деньг|бизнес|финанс/, 'wall street'], [/политик|президент/, 'politics']];
+// Из текста — несколько вариантов коллекции, от самого точного к запасному: берём первый, где что-то нашлось
+async function makeColDefs(text, type) {
+  const q = text.toLowerCase().trim(), base = { e: '⭐', own: true, t: text[0].toUpperCase() + text.slice(1) }, out = [];
+  // «похожее на сериал Теория большого взрыва» → рекомендации TMDB к этому сериалу/фильму
+  const sim = q.match(/похож\S*\s+(?:на\s+)?(?:(фильм|сериал|мульт)\S*\s+)?(.+)/);
+  if (sim) {
+    const name = text.slice(text.length - sim[2].length).replace(/[«»"“”]/g, '').trim();
+    const order = sim[1] === 'сериал' ? ['tv'] : sim[1] ? ['movie'] : [type, type === 'movie' ? 'tv' : 'movie'];
+    for (const t of order) {
+      const f = await api('/search/' + t, { query: name }).catch(() => ({}));
+      const x = (f.results || []).sort((a, b) => (b.vote_count || 0) - (a.vote_count || 0))[0];
+      if (x) { out.push({ ...base, type: t, e: '🔁', t: 'Похоже на «' + (x.title || x.name) + '»', path: '/' + t + '/' + x.id + '/recommendations', p: {} }); break; }
+    }
+  }
+  if (/сериал/.test(q) && !sim) type = 'tv'; else if (/фильм/.test(q) && !sim) type = 'movie';
+  const mv = type === 'movie', dk = mv ? 'primary_release_date' : 'first_air_date', p = {};
+  const g = CG[type].filter(([re]) => re.test(q)).map(([, id]) => id); if (g.length) p.with_genres = [...new Set(g)].join(',');
+  const c = CC.find(([re]) => re.test(q)); if (c) p.with_origin_country = c[1];
+  const dec = q.match(/(?:19|20)?(\d)0-?(?:х|е|ые|ых)/), yr = q.match(/\b(19\d\d|20\d\d)\b/);
+  if (yr) { p[dk + '.gte'] = yr[1] + '-01-01'; p[dk + '.lte'] = yr[1] + '-12-31'; }
+  else if (dec) { const d = +dec[1], y = d >= 3 ? 1900 + d * 10 : 2000 + d * 10; p[dk + '.gte'] = y + '-01-01'; p[dk + '.lte'] = (y + 9) + '-12-31'; }
+  if (/нов(ые|ое|инк)/.test(q)) { p[dk + '.gte'] = (yearNow - 1) + '-01-01'; p.sort_by = 'popularity.desc'; }
+  // Темы: «мама», «космос», «ограбление»… → ключевые слова TMDB
+  const kw = [];
+  for (const [re, en] of THEMES) if (re.test(q)) { const k = await api('/search/keyword', { query: en }).catch(() => ({})); (k.results || []).slice(0, 3).forEach(x => kw.push(x.id)); }
+  if (!kw.length && !Object.keys(p).length && !sim) { const k = await api('/search/keyword', { query: text }).catch(() => ({})); (k.results || []).slice(0, 5).forEach(x => kw.push(x.id)); }
+  if (kw.length) { p.with_keywords = [...new Set(kw)].join('|'); p.sort_by = p.sort_by || 'popularity.desc'; }
+  const disc = (vc, extra = {}) => ({ ...base, type, path: '/discover/' + type, p: { sort_by: 'vote_average.desc', 'vote_count.gte': vc, ...(g.includes(16) ? {} : { without_genres: '16' }), ...p, ...extra } });
+  if (Object.keys(p).length) {
+    out.push(disc(kw.length || c || dec || yr ? (mv ? '100' : '30') : (mv ? '500' : '150')));
+    out.push(disc(mv ? '20' : '10', { sort_by: 'popularity.desc' })); // помягче — если строгий ничего не дал
+  }
+  // Запасной: поиск по названиям — хоть что-то по запросу найдётся
+  if (!sim) out.push({ ...base, type, path: '/search/' + type, p: { query: text } }, { ...base, type: mv ? 'tv' : 'movie', path: '/search/' + (mv ? 'tv' : 'movie'), p: { query: text } });
+  return out;
+}
+async function createCollection() {
+  const type = seg.lists, word = type === 'movie' ? 'фильмов' : 'сериалов';
+  const text = await ask({ title: 'Новая коллекция ' + word, text: 'Напиши как хочешь: «американские комедии», «про маму», «похожее на сериал Теория большого взрыва», «фантастика 80-х», «про космос».', input: true, ok: 'Создать' });
+  if (!text) return;
+  if (!navigator.onLine || !db.key) return toast('Нужен интернет');
+  toast('Ищу…');
+  let def = null, items = [];
+  for (const d of await makeColDefs(text, type)) { items = await loadOne(d, d.type); if (items.length) { def = { ...d, id: 'my' + Date.now() }; break; } }
+  if (!def) return toast('Ничего не нашлось. Попробуй другими словами');
+  (db.myCols = db.myCols || []).push(def);
+  const t = def.type; db.disc = db.disc || {};
+  const dc = db.disc[t] = db.disc[t] || { v: 8, day: '', cols: [] }; dc.cols.push({ i: def.id, items });
+  save();
+  // Новая — сразу первой в этом заходе; дальше меняется, как остальные. Если она другого типа — переключаемся на него
+  if (colMix[t]) colMix[t].unshift(def.id);
+  if (seg.lists !== t) seg.lists = t;
+  refreshMain(); openCollection(def.id);
+}
 // В подборках только новое: что уже в «Посмотрю» или «Просмотрено» — не показываем
 const fresh = l => visible(l).filter(x => !db.items[uid(x.type, x.id)]);
 function openCollection(i) {
-  const type = seg.lists, def = COLLECTIONS[type][i], c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
+  const type = seg.lists, def = colDef(type, i), c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
   if (!c) return;
   const L = pushLayer('page', true), el = L.el; L.drop = true;
-  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${fresh(c.items).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1">Показать ещё</button>' : ''}</div>`;
-  if (!def.fixed) return;
+  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${fresh(c.items).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1">Показать ещё</button>' : `<button class="more" data-fav="1">${isFav(type, i) ? 'Убрать из избранных подборок' : '★ В избранные подборки'}</button>${def.own ? '<button class="more del" data-delcol="1">Удалить коллекцию</button>' : ''}`}</div>`;
+  if (!def.fixed) {
+    L.onButton = async t => {
+      if (t.dataset.fav) {
+        const f = db.favCols = db.favCols || [], k = favKey(type, i), on = !f.includes(k);
+        if (on) f.push(k); else f.splice(f.indexOf(k), 1);
+        save(); t.textContent = on ? 'Убрать из избранных подборок' : '★ В избранные подборки';
+        toast(on ? 'Добавлено в избранные подборки' : 'Убрано из избранных подборок'); colMix = {}; return;
+      }
+      if (t.dataset.delcol) {
+        if (!await ask({ title: 'Удалить коллекцию?', text: `«${def.t}» пропадёт из подборок.`, ok: 'Удалить', danger: true })) return;
+        db.myCols = (db.myCols || []).filter(x => x.id !== i); db.favCols = (db.favCols || []).filter(k => k !== favKey(type, i));
+        const dc = db.disc && db.disc[type]; if (dc) dc.cols = dc.cols.filter(x => x.i !== i);
+        save(); popLayer(L); toast('Коллекция удалена');
+      }
+    };
+    return;
+  }
   // Стриминги: весь каталог — догружаем страницы TMDB по кнопке
   let page = 1;
   L.onButton = async t => {
@@ -941,6 +1035,7 @@ function popLayer(L = topLayer()) {
   const t = topLayer();
   cur = t && t.kind === 'item' ? t.it : null; openSeason = t ? t.openSeason : null;
   if (t && t.kind === 'item') renderSheet(); // свежие отметки, прокрутка сохраняется
+  if (t && t.redraw) t.redraw();
   // Коллекция и «Похожие»: отмеченное в карточке сразу убираем из списка
   if (t && t.drop) {
     t.el.querySelectorAll('.grid .tile[data-open]').forEach(b => { if (db.items[b.dataset.open]) b.remove(); });
@@ -989,7 +1084,7 @@ async function openSimilar(it) {
 
 // ---------- Страница актёра / члена съёмочной группы ----------
 async function openPerson(id, name) {
-  const el = pushLayer('person', true).el;
+  const L = pushLayer('person', true), el = L.el;
   el.innerHTML = closeBtn('px') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="empty">${navigator.onLine && db.key ? 'Загружаю…' : 'Фильмография откроется, когда будет интернет.'}</div></div>`;
   if (!navigator.onLine || !db.key) return;
   try {
@@ -1011,11 +1106,14 @@ async function openPerson(id, name) {
     const part = t => { const l = all.filter(x => x.it.type === t).map(x => x.it); return { u: l.filter(i => !seenIt(i)).slice(0, 60), s: l.filter(seenIt) }; };
     // Просмотренное — в зелёной рамке, как «Начал смотреть» в «Посмотрю»
     const grid = g => (g.u.length ? `<div class="grid">${g.u.map(tile).join('')}</div>` : '') + (g.s.length ? `<div class="seenbox"><div class="seenline"><span>Уже видел</span></div><div class="grid">${g.s.map(seenTile).join('')}</div></div>` : '');
-    const mv = part('movie'), tv = part('tv'), dept = { Acting: 'Актёр', Directing: 'Режиссёр', Writing: 'Сценарист', Production: 'Продюсер', Sound: 'Композитор', Camera: 'Оператор' }[d.known_for_department] || '';
+    const dept = { Acting: 'Актёр', Directing: 'Режиссёр', Writing: 'Сценарист', Production: 'Продюсер', Sound: 'Композитор', Camera: 'Оператор' }[d.known_for_department] || '';
     const born = d.birthday ? 'род. ' + fmtDate(d.birthday) : '';
     const has = g => g.u.length + g.s.length;
+    // Рисуем заново при возврате из карточки — отмеченное сразу уходит в «Уже видел»
+    const draw = () => { const mv = part('movie'), tv = part('tv');
     el.innerHTML = closeBtn('px') + `<div class="hero"><div class="face big">${esc(initials(d.name || name))}${d.profile_path ? `<img src="${IMG}w342${d.profile_path}" alt="" onerror="this.remove()">` : ''}</div><h2>${esc(d.name || name)}</h2><div class="s">${[dept, born].filter(Boolean).join(' · ')}</div></div>
-    <div class="body">${has(mv) ? `<div class="psec"><h3>🎬 Фильмы<span class="cnt">${cnt('movie')}</span></h3>${grid(mv)}</div>` : ''}${has(tv) ? `<div class="psec"><h3>📺 Сериалы<span class="cnt">${cnt('tv')}</span></h3>${grid(tv)}</div>` : ''}${!has(mv) && !has(tv) ? '<div class="empty">Ничего не нашлось.</div>' : ''}</div>`;
+    <div class="body">${has(mv) ? `<div class="psec"><h3>🎬 Фильмы<span class="cnt">${cnt('movie')}</span></h3>${grid(mv)}</div>` : ''}${has(tv) ? `<div class="psec"><h3>📺 Сериалы<span class="cnt">${cnt('tv')}</span></h3>${grid(tv)}</div>` : ''}${!has(mv) && !has(tv) ? '<div class="empty">Ничего не нашлось.</div>' : ''}</div>`; };
+    draw(); L.redraw = () => { const y = el.scrollTop; draw(); el.scrollTop = y; };
   } catch (e) { el.querySelector('.body').innerHTML = `<div class="empty">${e.message === 'nf' ? 'Не нашёл этого человека в TMDB.' : errText(e)}</div>`; }
 }
 // «Видел»: фильм или сериал просмотрен, либо сериал уже начат
@@ -1190,7 +1288,8 @@ $('#main').addEventListener('click', e => {
     const y = scrollY; render(); scrollTo(0, y); return; }
   const ab = e.target.closest('[data-air]'); if (ab) { airF = airF === ab.dataset.air ? 'all' : ab.dataset.air; try { localStorage.setItem('kino-air', airF); } catch {} const y = scrollY; render(); scrollTo(0, y); return; }
   const sg = e.target.closest('[data-seg]'); if (sg) { seg[tab] = sg.dataset.seg; const y = scrollY; render(); scrollTo(0, y); return; }
-  const cl = e.target.closest('[data-col]'); if (cl) return openCollection(+cl.dataset.col);
+  if (e.target.closest('[data-mkcol]')) return createCollection();
+  const cl = e.target.closest('[data-col]'); if (cl) { const v = cl.dataset.col; return openCollection(/^\d+$/.test(v) ? +v : v); }
   if (e.target.closest('[data-oscar]')) return openOscar();
   const nx = e.target.closest('[data-next]');
   if (nx) { const it = db.items['tv-' + nx.dataset.next], n = nextEp(it); if (n) { toggleEp(it, n.s, n.e); toast(`Сезон ${n.s}, серия ${n.e} — просмотрена`); render(); } return; }
