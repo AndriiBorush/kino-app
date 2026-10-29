@@ -168,6 +168,11 @@ button.person{display:block}
 .years button{flex:none;padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
 .years button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
 .more{display:block;width:100%;margin:18px 0 8px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:15px}
+.seen2{position:absolute;top:6px;right:6px;z-index:2;display:grid;place-items:center;width:30px;height:22px;border-radius:11px;background:rgba(11,13,18,.82);color:#5fd39a}
+.seen2 svg{width:20px;height:14px}
+.seenbox{margin:14px -6px 4px;padding:10px 8px 0;border:1px solid rgba(95,211,154,.45);border-radius:16px;background:linear-gradient(180deg,rgba(95,211,154,.10),transparent 120px)}
+.seenline{display:flex;align-items:center;gap:10px;margin:0 0 10px;color:#5fd39a;font-size:13px}
+.seenline::before,.seenline::after{content:'';flex:1;height:1px;background:rgba(95,211,154,.35)}
 .airbar{display:flex;justify-content:center;gap:8px;margin-bottom:14px}
 .airbar button{padding:7px 14px;border-radius:20px;background:var(--card);border:1px solid var(--line);font-size:14px}
 .airbar button.on{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
@@ -1002,13 +1007,22 @@ async function openPerson(id, name) {
     }
     const all = Object.values(map).filter(x => !hiddenX(x.it)).sort((a, b) => b.votes - a.votes);
     const cnt = t => all.filter(x => x.it.type === t).length;
-    const part = t => all.filter(x => x.it.type === t).slice(0, 60).map(x => x.it);
+    // Сначала то, что не видел (до 60 самых известных), потом — всё уже просмотренное, за линией
+    const part = t => { const l = all.filter(x => x.it.type === t).map(x => x.it); return { u: l.filter(i => !seenIt(i)).slice(0, 60), s: l.filter(seenIt) }; };
+    // Просмотренное — в зелёной рамке, как «Начал смотреть» в «Посмотрю»
+    const grid = g => (g.u.length ? `<div class="grid">${g.u.map(tile).join('')}</div>` : '') + (g.s.length ? `<div class="seenbox"><div class="seenline"><span>Уже видел</span></div><div class="grid">${g.s.map(seenTile).join('')}</div></div>` : '');
     const mv = part('movie'), tv = part('tv'), dept = { Acting: 'Актёр', Directing: 'Режиссёр', Writing: 'Сценарист', Production: 'Продюсер', Sound: 'Композитор', Camera: 'Оператор' }[d.known_for_department] || '';
     const born = d.birthday ? 'род. ' + fmtDate(d.birthday) : '';
+    const has = g => g.u.length + g.s.length;
     el.innerHTML = closeBtn('px') + `<div class="hero"><div class="face big">${esc(initials(d.name || name))}${d.profile_path ? `<img src="${IMG}w342${d.profile_path}" alt="" onerror="this.remove()">` : ''}</div><h2>${esc(d.name || name)}</h2><div class="s">${[dept, born].filter(Boolean).join(' · ')}</div></div>
-    <div class="body">${mv.length ? `<div class="psec"><h3>🎬 Фильмы<span class="cnt">${cnt('movie')}</span></h3><div class="grid">${mv.map(tile).join('')}</div></div>` : ''}${tv.length ? `<div class="psec"><h3>📺 Сериалы<span class="cnt">${cnt('tv')}</span></h3><div class="grid">${tv.map(tile).join('')}</div></div>` : ''}${!mv.length && !tv.length ? '<div class="empty">Ничего не нашлось.</div>' : ''}</div>`;
+    <div class="body">${has(mv) ? `<div class="psec"><h3>🎬 Фильмы<span class="cnt">${cnt('movie')}</span></h3>${grid(mv)}</div>` : ''}${has(tv) ? `<div class="psec"><h3>📺 Сериалы<span class="cnt">${cnt('tv')}</span></h3>${grid(tv)}</div>` : ''}${!has(mv) && !has(tv) ? '<div class="empty">Ничего не нашлось.</div>' : ''}</div>`;
   } catch (e) { el.querySelector('.body').innerHTML = `<div class="empty">${e.message === 'nf' ? 'Не нашёл этого человека в TMDB.' : errText(e)}</div>`; }
 }
+// «Видел»: фильм или сериал просмотрен, либо сериал уже начат
+const seenIt = i => { const o = db.items[uid(i.type, i.id)]; return !!o && (o.status === 'watched' || o.status === 'watching'); };
+// Две зелёные галочки, как в Телеграме, — в правом верхнем углу постера (вместо точки статуса)
+const CHECKS = '<span class="seen2" aria-label="Уже видел"><svg viewBox="0 0 24 16"><path d="M1.5 8.5l4 4 8-9M9.5 12.5l1 1 11-11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+const seenTile = x => tile(x).replace(/<i class="dot[^"]*"><\/i>/, '').replace('<div class="poster">', '<div class="poster">' + CHECKS);
 const closeBtn = id => `<button class="iconbtn close" id="${id}" aria-label="Закрыть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`;
 // Есть русский трейлер — открываем его; нет — поиск YouTube на русском
 const trailerUrl = it => it.yt ? 'https://www.youtube.com/watch?v=' + it.yt
