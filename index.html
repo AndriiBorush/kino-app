@@ -214,6 +214,8 @@ const KEY = 'kino-data', TMDB = 'https://api.themoviedb.org/3', IMG = 'https://i
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let db = load(), tab = 'want', query = '', results = null, searchTimer;
+// Перенос: досмотренные, но не завершённые сериалы — из «Просмотрено» в «Начал смотреть»
+Object.values(db.items).forEach(i => { if (i.type === 'tv' && i.status === 'watched' && i.tvStatus && !/Ended|Canceled/.test(i.tvStatus)) i.status = 'watching'; });
 const seg = { want: 'tv', watched: 'movie', lists: 'movie' }; // при открытии — «Посмотрю → Сериалы»
 const pool = {}; // всё, что пришло из TMDB (поиск, подборки) — чтобы открыть карточку
 
@@ -289,6 +291,7 @@ async function loadDetails(it) {
     // Пустой сезон оставляем, только если он последний и сериал не закончен — это объявленный сезон
     it.seasons = all.filter(s => s.episode_count > 0 || (s === last && !/Ended|Canceled/.test(d.status))).map(s => ({ n: s.season_number, count: s.episode_count, date: s.air_date || '' }));
     it.tvStatus = d.status || '';
+    if (it.status === 'watched' && it.tvStatus && !tvDone(it)) it.status = 'watching';
     it.lastAir = d.last_air_date || '';
     const ne = d.next_episode_to_air;
     it.next = ne && ne.air_date ? { date: ne.air_date, s: ne.season_number, e: ne.episode_number } : null;
@@ -404,11 +407,14 @@ function movieState(it) {
   return null;
 }
 const dot = st => st ? `<i class="dot ${st.c}"></i>` : '';
+const tvDone = it => /Ended|Canceled/.test(it.tvStatus || '');
 function afterEpisodes(it) {
   const n = seenCount(it);
   if (n && it.status === 'want') it.status = 'watching';
-  if (n && n >= total(it) && total(it)) { if (it.status !== 'watched') { it.status = 'watched'; it.watchedAt = Date.now(); } }
-  else if (it.status === 'watched' && n < total(it)) it.status = 'watching';
+  // В «Просмотрено» сериал уходит, только когда он завершён или закрыт; иначе ждёт новый сезон в «Начал смотреть»
+  const all = n && total(it) && n >= total(it);
+  if (all && tvDone(it)) { if (it.status !== 'watched') { it.status = 'watched'; it.watchedAt = Date.now(); } }
+  else if (it.status === 'watched' && n && (n < total(it) || !tvDone(it))) it.status = 'watching';
   if (!n && it.status === 'watching') it.status = 'want';
 }
 
@@ -427,7 +433,7 @@ function tile(it, sub) {
   return `<button class="tile" data-open="${uid(x.type, x.id)}"><div class="poster">${esc(x.title)}${p ? `<img src="${p}" alt="" loading="lazy" onerror="this.remove()">` : ''}${own ? dot(tvState(own)) : ''}</div><div class="t">${esc(x.title)}</div><div class="s">${typeof sub === 'string' ? sub : own && tab !== 'want' && tab !== 'watched' ? `<span class="mark">${statusName(own.status)}</span>` : (x.year || '') + (x.type === 'tv' ? ' · сериал' : '')}</div></button>`;
 }
 // «Начал смотреть» — такие же карточки, «+1» на постере; под названием — следующая серия
-const watchTile = it => { const n = nextEp(it), h = tile(it, n ? `Дальше: С${n.s} · Э${n.e}` : 'Досмотрен'); return n ? h.replace('</div><div class="t">', `<span class="tplus" role="button" data-next="${it.id}">+1</span></div><div class="t">`) : h; };
+const watchTile = it => { const n = nextEp(it), h = tile(it, n ? `Дальше: С${n.s} · Э${n.e}` : 'Ждём новый сезон'); return n ? h.replace('</div><div class="t">', `<span class="tplus" role="button" data-next="${it.id}">+1</span></div><div class="t">`) : h; };
 function segBar() {
   const s = seg[tab];
   return `<div class="seg"><button data-seg="movie" class="${s === 'movie' ? 'on' : ''}">Фильмы</button><button data-seg="tv" class="${s === 'tv' ? 'on' : ''}">Сериалы</button></div>`;
