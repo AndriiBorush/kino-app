@@ -30,7 +30,18 @@ nav button.on{color:var(--gold)}
 .seg button{flex:1;height:36px;border-radius:9px;font-size:15px;color:var(--muted)}
 .seg button.on{background:#262b36;color:var(--text);font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 10px}
-.tile{text-align:left;min-width:0}
+.tile{text-align:left;min-width:0;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.tile img{-webkit-touch-callout:none;pointer-events:none}
+/* Зажатие на постере — быстрое окно с двумя кнопками */
+#qp{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;background:rgba(0,0,0,.55);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);opacity:0;transition:opacity .18s}
+#qp.on{opacity:1}
+#qp .qimg{width:min(58vw,260px);aspect-ratio:2/3;border-radius:16px;overflow:hidden;background:var(--card);box-shadow:0 20px 50px rgba(0,0,0,.5);transform:scale(.92);transition:transform .18s}
+#qp.on .qimg{transform:scale(1)}
+#qp .qimg img{width:100%;height:100%;object-fit:cover;display:block}
+#qp .qt{font-weight:600;font-size:17px;text-align:center;max-width:280px}
+#qp .qb{display:flex;gap:10px;width:min(80vw,320px)}
+#qp .qb button{flex:1;padding:14px 8px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:600;font-size:15px;color:var(--text)}
+#qp .qb button.on{background:var(--text);color:var(--bg)}
 .poster{width:100%;aspect-ratio:2/3;border-radius:10px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;color:var(--muted);font-size:12px;text-align:center;padding:6px;overflow:hidden;position:relative}
 .poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .tile .t{font-size:13px;margin-top:6px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -117,6 +128,8 @@ button.person{display:block}
 .play{position:absolute;right:10px;bottom:10px;z-index:2;width:46px;height:46px;border-radius:50%;background:rgba(110,114,122,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);display:grid;place-items:center;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 .play svg{width:22px;height:22px;margin-left:3px}
 .play:active{transform:scale(.94)}
+.favtop{position:fixed;top:calc(env(safe-area-inset-top) + 10px);left:16px;z-index:11;width:auto;padding:0 14px;font-size:15px;font-weight:600;color:var(--text)}
+.favtop.on{color:#9db6ff;border-color:#4f7cff}
 .close{position:fixed;top:calc(env(safe-area-inset-top) + 10px);right:16px;z-index:11}
 .body{padding:20px 16px calc(env(safe-area-inset-bottom) + 30px)}
 .btns{display:flex;gap:10px}
@@ -493,6 +506,47 @@ function setTab(t) {
   render(); scrollTo(0, 0);
 }
 const statusName = s => s === 'want' ? 'В «Посмотрю»' : s === 'watched' ? 'Просмотрено' : 'Смотрю';
+// ---------- Зажатие на постере: «Посмотрю» / «Просмотрено» без захода в карточку ----------
+let lpT = null, lpXY = null, lpFired = 0;
+document.addEventListener('touchstart', e => {
+  const b = e.target.closest('.tile[data-open]'); if (!b || e.touches.length > 1) return;
+  lpXY = [e.touches[0].clientX, e.touches[0].clientY]; clearTimeout(lpT);
+  lpT = setTimeout(() => { lpT = null; lpFired = Date.now(); quickPeek(b); }, 450);
+}, { passive: true });
+document.addEventListener('touchmove', e => { if (lpT && Math.hypot(e.touches[0].clientX - lpXY[0], e.touches[0].clientY - lpXY[1]) > 10) { clearTimeout(lpT); lpT = null; } }, { passive: true });
+document.addEventListener('touchend', () => { clearTimeout(lpT); lpT = null; }, { passive: true });
+// После зажатия палец отпускается — это нажатие не должно открывать карточку
+document.addEventListener('click', e => { if (Date.now() - lpFired < 700 && !e.target.closest('#qp')) { e.stopPropagation(); e.preventDefault(); } }, true);
+document.addEventListener('contextmenu', e => { if (e.target.closest('.tile')) e.preventDefault(); });
+function quickPeek(b) {
+  const id = b.dataset.open, base = db.items[id] || pool[id]; if (!base) return;
+  if (navigator.vibrate) navigator.vibrate(10);
+  const p = poster(base.poster, 'w500'), q = document.createElement('div'); q.id = 'qp';
+  const draw = () => { const it = db.items[id], st = it && it.status;
+    q.innerHTML = `<div class="qimg">${p ? `<img src="${p}" alt="">` : ''}</div><div class="qt">${esc(base.title)}${base.year ? ' · ' + base.year : ''}</div><div class="qb"><button data-q="want" class="${st === 'want' || st === 'watching' ? 'on' : ''}">Посмотрю</button><button data-q="watched" class="${st === 'watched' ? 'on' : ''}">Просмотрено</button></div>`; };
+  draw(); document.body.appendChild(q); requestAnimationFrame(() => q.classList.add('on'));
+  let changed = false;
+  const close = () => { q.classList.remove('on'); setTimeout(() => q.remove(), 180);
+    if (!changed) return;
+    const top = stack[stack.length - 1];
+    // Где отмеченное пропадает (подборки, коллекции) — убираем плитку сразу; в главном окне — перерисовываем
+    if (top && top.drop && db.items[id]) b.remove(); else if (!stack.length) refreshMain();
+  };
+  q.addEventListener('click', e => {
+    const t = e.target.closest('[data-q]'); if (!t) return close();
+    const st = t.dataset.q, own = db.items[id], active = own && (own.status === st || (st === 'want' && own.status === 'watching'));
+    if (active) { dropPoster(own.poster); delete db.items[id]; (db.folders || []).forEach(f => { const i = f.items.indexOf(id); if (i >= 0) f.items.splice(i, 1); }); save(); toast('Убрано из списков'); }
+    else {
+      const it = own || { ...base }; it.status = st;
+      if (st === 'watched') { it.watchedAt = Date.now(); if (it.type === 'tv' && it.seasons) { it.seen = {}; airedSeasons(it).forEach(s => it.seen[s.n] = Array.from({ length: airedCount(it, s) }, (_, i) => i + 1)); } }
+      if (st === 'want' && it.type === 'tv') it.seen = {};
+      keep(it); toast(st === 'want' ? 'Добавлено в «Посмотрю»' : 'Отмечено как просмотренное');
+      // Жанры, сезоны и прочее — догружаем тихо, как при открытии карточки
+      if (!it.details && navigator.onLine && db.key) loadDetails(it).then(save).catch(() => {});
+    }
+    changed = true; setTimeout(close, 250); draw();
+  });
+}
 function tile(it, sub) {
   const own = db.items[uid(it.type, it.id)], x = own || it, p = poster(x.poster);
   return `<button class="tile" data-open="${uid(x.type, x.id)}"><div class="poster">${esc(x.title)}${p ? `<img src="${p}" alt="" loading="lazy" onerror="this.remove()">` : ''}${own ? dot(tvState(own)) : ''}</div><div class="t">${esc(x.title)}</div><div class="s">${typeof sub === 'string' ? sub : own && tab !== 'want' && tab !== 'watched' ? `<span class="mark">${statusName(own.status)}</span>` : (x.year || '') + (x.type === 'tv' ? ' · сериал' : '')}</div></button>`;
@@ -890,7 +944,7 @@ function renderShelves() {
     const ok = cols.cols.map(c => ({ i: c.i, items: fresh(c.items) })).filter(c => colDef(type, c.i) && !(db.hiddenCols || []).includes(favKey(type, c.i)) && c.items.length >= (colDef(type, c.i).own ? 1 : 4));
     // Обычные коллекции (и свои) — 10 случайных, новый набор при каждом заходе; стриминги и избранные — всегда внизу
     if (!colMix[type]) colMix[type] = ok.filter(c => !colDef(type, c.i).fixed && !isFav(type, c.i)).map(c => c.i).sort(() => Math.random() - 0.5).slice(0, 10);
-    const shown = colMix[type].map(i => ok.find(c => c.i === i)).filter(c => c && !isFav(type, c.i)), fix = ok.filter(c => colDef(type, c.i).fixed), fav = ok.filter(c => !colDef(type, c.i).fixed && isFav(type, c.i));
+    const shown = colMix[type].map(i => ok.find(c => c.i === i)).filter(c => c && !isFav(type, c.i)), fix = COLLECTIONS[type].map((d, i) => ({ i, d })).filter(x => x.d.fixed).map(x => ({ i: x.i })), fav = ok.filter(c => !colDef(type, c.i).fixed && isFav(type, c.i));
     h += `<div class="colhead"><h3>Коллекции</h3><button class="mkcol" data-mkcol="1">＋ Создать</button></div>` + shown.map(c => {
       const def = colDef(type, c.i), n = c.items.length;
       return `<div class="swp" data-swp="${c.i}"><div class="bg del">Удалить</div><div class="bg fav">★ В избранные</div><button class="col" data-col="${c.i}"><div class="emo">${def.e}</div><div class="ct">${esc(def.t)}</div><div class="cn">${n} ${plural(n, 'новый', 'новых', 'новых')}</div></button></div>`;
@@ -898,8 +952,8 @@ function renderShelves() {
     // Постоянные: стриминги и «Оскар» — отдельным блоком в цветах сервисов
     const fc = (b, c, attr, t, sub) => `<button class="fixc" style="--b:${b};--c:${c}" ${attr}><div class="ct">${t}</div><div class="cn">${sub}</div></button>`;
     h += `<div class="colhead" style="margin-top:30px"><h3>Избранные подборки</h3></div><div class="fixgrid">` + fix.map(c => { const def = colDef(type, c.i); return fc(def.b, def.c, `data-col="${c.i}"`, esc(def.t), 'Весь каталог'); }).join('')
-      + fav.map(c => { const def = colDef(type, c.i), n = c.items.length; return fc('#4f7cff', '#9db6ff', `data-col="${c.i}"`, esc(def.t), n + ' ' + plural(n, 'новый', 'новых', 'новых')); }).join('')
-      + (type === 'movie' ? fc('#c9a23a', '#e2b84a', 'data-oscar="1"', 'Премия Оскар', 'Победители по годам') : '') + '</div>';
+      + (type === 'movie' ? fc('#c9a23a', '#e2b84a', 'data-oscar="1"', 'Премия Оскар', 'Победители по годам') : '')
+      + fav.map(c => { const def = colDef(type, c.i), n = c.items.length; return fc('#4f7cff', '#9db6ff', `data-col="${c.i}"`, esc(def.t), n + ' ' + plural(n, 'новый', 'новых', 'новых')); }).join('') + '</div>';
   } else h += `<div class="empty" style="padding:30px 20px">${navigator.onLine ? 'Загружаю коллекции…' : 'Коллекции появятся, когда будет интернет.'}</div>`;
   m.innerHTML = h;
   m.querySelectorAll('[data-swp]').forEach(w => swipeCol(w, type));
@@ -1020,15 +1074,16 @@ function newerFirst(l) {
 const fresh = l => visible(l).filter(x => !db.items[uid(x.type, x.id)]);
 function openCollection(i) {
   const type = seg.lists, def = colDef(type, i), c = ((db.disc || {})[type] || { cols: [] }).cols.find(x => x.i === i);
-  if (!c) return;
+  if (!c) return toast('Загрузится, когда будет интернет');
   const L = pushLayer('page', true), el = L.el; L.drop = true;
-  el.innerHTML = closeBtn('pgx') + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${newerFirst(fresh(c.items)).map(tile).join('')}</div>${def.fixed ? '<button class="more" data-more="1" style="border:0;background:none;color:var(--muted)"></button>' : `<button class="more" data-fav="1">${isFav(type, i) ? 'Убрать из избранных подборок' : '★ В избранные подборки'}</button>${def.own ? '<button class="more del" data-delcol="1">Удалить коллекцию</button>' : ''}`}</div>`;
+  const favBtn = on => `<button class="iconbtn favtop${on ? ' on' : ''}" data-fav="1">${on ? '★ В избранном' : '☆ В избранное'}</button>`;
+  el.innerHTML = closeBtn('pgx') + (def.fixed ? '' : favBtn(isFav(type, i))) + `<div class="body" style="padding-top:calc(env(safe-area-inset-top) + 64px)"><div class="pagehead"><div class="emo">${def.e}</div><h2>${esc(def.t)}</h2><div class="s">${type === 'movie' ? 'Фильмы' : 'Сериалы'} · ${fresh(c.items).length}</div></div><div class="grid">${newerFirst(fresh(c.items)).map(tile).join('')}</div><button class="more" data-more="1" style="border:0;background:none;color:var(--muted)"></button>${def.own ? '<button class="more del" data-delcol="1">Удалить коллекцию</button>' : ''}</div>`;
   if (!def.fixed) {
     L.onButton = async t => {
       if (t.dataset.fav) {
         const f = db.favCols = db.favCols || [], k = favKey(type, i), on = !f.includes(k);
         if (on) f.push(k); else f.splice(f.indexOf(k), 1);
-        save(); t.textContent = on ? 'Убрать из избранных подборок' : '★ В избранные подборки';
+        save(); t.outerHTML = favBtn(on);
         toast(on ? 'Добавлено в избранные подборки' : 'Убрано из избранных подборок'); colMix = {}; return;
       }
       if (t.dataset.delcol) {
@@ -1038,9 +1093,9 @@ function openCollection(i) {
         save(); popLayer(L); toast('Коллекция удалена');
       }
     };
-    return;
   }
-  // Стриминги: весь каталог — сами догружаем страницы TMDB, когда долистал до низа
+  // Любая коллекция бесконечная: сами догружаем страницы TMDB, когда долистал до низа
+  const nol = def.p.without_original_language, okX = x => (!nol || x.original_language !== nol) && !(def.fixed && noise(x));
   let page = 1, busy = false, end = false;
   const t = el.querySelector('[data-more]'); t.disabled = true; t.textContent = '';
   const more = async () => {
@@ -1050,7 +1105,7 @@ function openCollection(i) {
     try {
       const d = await api(def.path, { ...def.p, page: ++page });
       const have = new Set([...el.querySelectorAll('.tile[data-open]')].map(b => b.dataset.open));
-      const add = fresh(listOf({ results: (d.results || []).filter(x => !noise(x)) }, type)).filter(x => x.date && x.date <= today() && !have.has(uid(x.type, x.id)));
+      const add = fresh(listOf({ results: (d.results || []).filter(okX) }, type)).filter(x => x.date && x.date <= today() && !have.has(uid(x.type, x.id)));
       el.querySelector('.grid').insertAdjacentHTML('beforeend', add.map(tile).join(''));
       const n = el.querySelectorAll('.grid .tile').length, h = el.querySelector('.pagehead .s'); h.textContent = h.textContent.replace(/\d+$/, n);
       t.textContent = ''; busy = false;
