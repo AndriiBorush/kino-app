@@ -1561,7 +1561,7 @@ function swipeClose(el, close) {
 // ---------- Свайп справа налево закрывает подборку, «Похожие», актёра, карточку ----------
 function swipeSide(el, close) {
   let x0 = null, y0 = 0, dx = 0, horiz = null;
-  el.addEventListener('touchstart', e => { x0 = e.target.closest('.scroller, .folders, [data-swp], .season .head') ? null : e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horiz = null; }, { passive: true });
+  el.addEventListener('touchstart', e => { x0 = e.target.closest('.scroller, .folders, .people, .years, [data-swp], .season .head') ? null : e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horiz = null; }, { passive: true });
   el.addEventListener('touchmove', e => {
     if (x0 === null) return;
     dx = e.touches[0].clientX - x0; const dy = e.touches[0].clientY - y0;
