@@ -55,6 +55,8 @@ nav button.on{color:var(--gold)}
 .lsec.go .lhd i{background:#5fd39a}
 .lsec.no{border-color:rgba(255,90,90,.5);background:linear-gradient(180deg,rgba(255,90,90,.10),var(--card) 120px)}
 .lsec.no .lhd i{background:#ff5a5a}
+.lsec.flat{border:0;background:none;padding:0 4px;margin:4px 0 18px}
+.lsec.flat .lhd i{display:none}
 .sec{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:24px 0 10px}
 .row{display:flex;gap:12px;align-items:center;padding:10px;border-radius:14px;background:var(--card);border:1px solid var(--line);margin-bottom:10px;width:100%}
 .row .poster{width:56px;flex:none;border-radius:8px}
@@ -597,7 +599,7 @@ function render() {
       if (wait.length) {
         // Как у сериалов: каждый раздел в своей рамке; «Ещё нет в сети» — с красным оттенком
         const bx = (cls, t, l) => `<section class="lsec${cls}"><div class="lhd"><i></i>${t}</div><div class="grid">${l.map(i => tile(i)).join('')}</div></section>`;
-        h += (can.length ? bx('', 'Можно посмотреть', can) : '') + bx(' no', 'Ещё нет в сети', wait);
+        h += (can.length ? bx(' flat', 'Можно посмотреть', can) : '') + bx(' no', 'Ещё нет в сети', wait);
         m.innerHTML = h; return;
       }
     }
@@ -605,7 +607,7 @@ function render() {
     // Оба раздела есть — каждый в своей рамке с заголовком; «Начал смотреть» — с зелёным оттенком
     const box = (cls, t, l, f) => `<section class="lsec${cls}"><div class="lhd"><i></i>${t}</div><div class="grid">${l.map(f).join('')}</div></section>`;
     // Порядок разделов меняется в настройках (db.watchingFirst)
-    if (list.length && watching.length) { const a = box('', 'Хочу посмотреть', list, i => tile(i)), b = box(' go', 'Начал смотреть', watching, watchTile); h += db.watchingFirst ? b + a : a + b; }
+    if (list.length && watching.length) { const a = box(' flat', 'Хочу посмотреть', list, i => tile(i)), b = box(' go', 'Начал смотреть', watching, watchTile); h += db.watchingFirst ? b + a : a + b; }
     else if (list.length) h += `<p class="count">${list.length} в списке</p><div class="grid">${list.map(i => tile(i)).join('')}</div>`;
     else if (!watching.length) h += `<div class="empty">Здесь будут ${word}, которые хочешь посмотреть.<br>Найди их в «Поиске» или «Подборках».</div>`;
     else if (watching.length) h += box(' go', 'Начал смотреть', watching, watchTile);
