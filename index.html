@@ -598,16 +598,16 @@ function render() {
       const can = list.filter(i => !soon(i)), wait = list.filter(soon);
       if (wait.length) {
         // Как у сериалов: каждый раздел в своей рамке; «Ещё нет в сети» — с красным оттенком
-        const bx = (cls, t, l) => `<section class="lsec${cls}"><div class="lhd"><i></i>${t}</div><div class="grid">${l.map(i => tile(i)).join('')}</div></section>`;
-        h += (can.length ? bx(' flat', 'Можно посмотреть', can) : '') + bx(' no', 'Ещё нет в сети', wait);
+        const bx = (cls, t, l) => `<section class="lsec${cls}">${t ? `<div class="lhd"><i></i>${t}</div>` : ''}<div class="grid">${l.map(i => tile(i)).join('')}</div></section>`;
+        h += (can.length ? bx(' flat', '', can) : '') + bx(' no', 'Ещё нет в сети', wait);
         m.innerHTML = h; return;
       }
     }
     if (f && !list.length && !watching.length) { m.innerHTML = h + `<div class="empty">В подборке «${esc(f.name)}» пока пусто.<br>Добавь фильм через его карточку.</div>`; return; }
     // Оба раздела есть — каждый в своей рамке с заголовком; «Начал смотреть» — с зелёным оттенком
-    const box = (cls, t, l, f) => `<section class="lsec${cls}"><div class="lhd"><i></i>${t}</div><div class="grid">${l.map(f).join('')}</div></section>`;
+    const box = (cls, t, l, f) => `<section class="lsec${cls}">${t ? `<div class="lhd"><i></i>${t}</div>` : ''}<div class="grid">${l.map(f).join('')}</div></section>`;
     // Порядок разделов меняется в настройках (db.watchingFirst)
-    if (list.length && watching.length) { const a = box(' flat', 'Хочу посмотреть', list, i => tile(i)), b = box(' go', 'Начал смотреть', watching, watchTile); h += db.watchingFirst ? b + a : a + b; }
+    if (list.length && watching.length) { const a = box(' flat', '', list, i => tile(i)), b = box(' go', 'Начал смотреть', watching, watchTile); h += db.watchingFirst ? b + a : a + b; }
     else if (list.length) h += `<p class="count">${list.length} в списке</p><div class="grid">${list.map(i => tile(i)).join('')}</div>`;
     else if (!watching.length) h += `<div class="empty">Здесь будут ${word}, которые хочешь посмотреть.<br>Найди их в «Поиске» или «Подборках».</div>`;
     else if (watching.length) h += box(' go', 'Начал смотреть', watching, watchTile);
